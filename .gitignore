@@ -1,0 +1,14 @@
+.DS_Store
+__pycache__/
+*.pyc
+
+logs/
+data/
+dashboard.html
+config/settings.json
+config/autostart-default-applied
+
+TokenStepSwift/.build/
+TokenStepSwift/dist/
+TokenUsageMenuApp/dist/
+release/

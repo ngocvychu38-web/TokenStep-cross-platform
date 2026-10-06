@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Swift tests
+        run: swift test --package-path TokenStepSwift
+      - name: Run usage collector fixture checks
+        run: ./script/test_ccswitch_proxy_collector.sh
+      - name: Run Codex cumulative accounting checks
+        run: ./script/test_codex_cumulative_collector.sh
+      - name: Run accounting migration checks
+        run: ./script/test_usage_recalibration_migration.sh
+      - name: Run update rollback checks
+        run: ./script/test_update_helper_transaction.sh
+      - name: Run freshness model checks
+        run: ./script/test_freshness_model.sh
+      - name: Run project extraction checks
+        run: ./script/test_project_extraction.sh
+      - name: Run agent sources checks
+        run: ./script/test_agent_sources.sh
+      - name: Run device sync checks
+        run: ./script/test_device_sync.sh
+      - name: Render settings cards check
+        run: ./script/render_settings_cards.sh
+      - name: Build TokenStep
+        run: ./script/build_swiftui_and_run.sh --no-launch
