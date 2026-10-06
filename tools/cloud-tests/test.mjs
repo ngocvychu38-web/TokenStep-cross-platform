@@ -19,6 +19,8 @@ try {
   `);
   const migration = await readFile(new URL('../../supabase/migrations/202610060001_initial_cloud_schema.sql', import.meta.url), 'utf8');
   await db.exec(migration.replace('create extension if not exists pgcrypto with schema extensions;', ''));
+  const hardening = await readFile(new URL('../../supabase/migrations/20261006233553_cloud_security_hardening.sql', import.meta.url), 'utf8');
+  await db.exec(hardening);
   const user = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
   const stranger = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
   const device = 'cccccccc-cccc-cccc-cccc-cccccccccccc';

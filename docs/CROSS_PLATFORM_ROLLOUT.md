@@ -15,7 +15,7 @@
 
 ## 验证状态与仍待完成的工作
 
-已在 Intel Mac 验证 Rust 测试、真实日志采集及 SwiftUI 编译。PGlite（Postgres WASM）测试实际执行 migration 与 SQL 函数，验证注册、入库、重复上传、RLS、来源失败保留、事务回滚和设备撤销。PGlite 中仅为测试替换 pgcrypto，生产 migration 保留真实 pgcrypto。正式 Supabase 与 Edge Functions 尚未部署。
+已在 Intel Mac 验证 Rust 测试、真实日志采集及 SwiftUI 编译。PGlite（Postgres WASM）测试实际执行 migration 与 SQL 函数，验证注册、入库、重复上传、RLS、来源失败保留、事务回滚和设备撤销。PGlite 中仅为测试替换 pgcrypto，生产 migration 保留真实 pgcrypto。2026-10-07 已正式部署 Supabase 与两个 Edge Functions，完成真实注册、上传、重复上传及数据库权限验证；详情见 [云端部署报告](SUPABASE_DEPLOYMENT.md)。正式用户 Auth 登录和 SwiftUI 登录读数仍待用户设置账号后验证。
 
 数据库模块独立验证：
 

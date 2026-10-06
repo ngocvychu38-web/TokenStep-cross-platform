@@ -1,4 +1,4 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.117.2";
 import { corsHeaders, json, sha256 } from "../_shared/http.ts";
 
 Deno.serve(async (request) => {
@@ -28,4 +28,3 @@ Deno.serve(async (request) => {
     return json({ error: "invalid_json" }, 400);
   }
 });
-
