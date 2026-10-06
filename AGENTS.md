@@ -2,10 +2,31 @@
 
 This file is the persistent project briefing for Codex and other coding agents. Read it before changing the repository. It captures the architecture and constraints established from the source snapshot downloaded on 2026-08-14.
 
+## Cross-platform architecture (active development branch)
+
+`codex/rust-cross-platform` introduces the new authoritative collection and cloud contract:
+
+- `rust/tokenstep-core`: cross-platform deep collection module. Its external seam is `SourceAdapter`; adapters return normalized `UsageFact` values and safe `SourceDiagnostic` metadata.
+- `rust/tokenstep-agent`: macOS Intel/Windows x64 CLI for `collect`, `verify`, `doctor`, `enroll`, and `sync`.
+- `UsageBucketV1`: cloud payload grouped by the joint dimensions day × Agent × model × project. Do not derive cloud payloads from `UsageSnapshot`, because its separate tool/model/project aggregates have lost those joint relationships.
+- `supabase/`: Postgres migrations plus device-enrollment and ingestion Edge Functions. Collectors never receive a Supabase service-role key.
+- `CloudDashboardView` / `SupabaseCloudService`: display-side Supabase Auth and RLS-protected `usage_dashboard` reads.
+- `docs/CROSS_PLATFORM_ROLLOUT.md`: authoritative deployment and independent verification gates.
+
+The previous Swift collector remains available during parity migration. New source logic should be implemented in Rust and verified with fixtures before the Swift implementation is retired.
+
+Rust verification:
+
+```bash
+./script/verify_rust_collector.sh
+./script/verify_cloud_assets.sh
+cargo test --workspace
+```
+
 ## Repository state
 
 - Upstream: `https://github.com/Backtthefuture/TokenStep`
-- This workspace copy was downloaded from the upstream `main` branch as a GitHub ZIP archive. It contains no upstream `.git` history, so do not assume an exact commit SHA or use history-dependent commands without first restoring Git metadata.
+- This workspace was downloaded as a ZIP without upstream history. Local Git history now starts at backup commit `c556839`, pushed to private repository `ngocvychu38-web/TokenStep-cross-platform`; active branch is `codex/rust-cross-platform`.
 - Product version in the current source and packaging scripts: `0.2.0`.
 - License: MIT.
 - Supported runtime: macOS 14 or newer. Production/release builds default to Apple Silicon (`arm64-apple-macos14.0`); `TOKENSTEP_ARCH=x86_64` produces a local Intel build.

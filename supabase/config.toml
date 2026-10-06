@@ -1,0 +1,8 @@
+project_id = "tokenstep-cross-platform"
+
+[functions.enroll-device]
+verify_jwt = false
+
+[functions.ingest-usage]
+verify_jwt = false
+

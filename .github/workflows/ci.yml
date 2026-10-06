@@ -2,10 +2,49 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, "codex/**"]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
+  cloud-sql:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --ignore-scripts
+        working-directory: tools/cloud-tests
+      - run: npm test
+        working-directory: tools/cloud-tests
+  rust:
+    strategy:
+      matrix:
+        os: [macos-15, windows-2025]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      - name: Test Rust workspace
+        run: cargo test --workspace
+      - name: Lint Rust workspace
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Build collector release
+        run: cargo build --release -p tokenstep-agent
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tokenstep-agent-${{ matrix.os }}
+          path: |
+            target/release/tokenstep-agent
+            target/release/tokenstep-agent.exe
+
   build:
     runs-on: macos-15
     steps:

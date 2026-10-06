@@ -1,5 +1,9 @@
 # TokenStep
 
+> Rust 跨平台采集器与 Supabase 多设备版本正在 `codex/rust-cross-platform`
+> 分支开发。架构、部署清单和逐步验证方法见
+> [跨平台部署与验收手册](docs/CROSS_PLATFORM_ROLLOUT.md)。
+
 **像记录步数一样，记录你每天的 AI Token 消耗。**
 
 AI 时代，每个人都在和 Agent 一起工作。
