@@ -76,6 +76,6 @@ cargo run -p tokenstep-agent -- sync \
 
 ## 尚需完成
 
-正式 workspace 暂无用户成员（不应向任意账号开放）。用户确认登录邮箱并自行设置密码后，将对应 auth.users.id 绑定为 workspace owner，再验证 Auth 密码登录和 SwiftUI 云端显示。用户不需要提供密码。
+2026-10-07 已核实用户自行创建的正式账号邮箱已确认，并将其绑定到 TokenStep workspace：显示名 `macforai`，角色 `owner`。以该账号的数据库 authenticated/JWT claim 上下文验证 RLS，能够读取 362 桶、1 台机器、3 个 Agent，合计 2,691,232,002 Token。该验证未使用用户密码，不代表已完成 Auth 密码登录或 SwiftUI 实际登录；这两项需用户在本机应用输入密码后继续确认。
 
 Mac 后台定时采集尚未安装，当前仅完成手动上传；Windows 实机采集与安装仍待验证。
