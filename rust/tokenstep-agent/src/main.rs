@@ -163,22 +163,64 @@ fn main() -> Result<()> {
                 Err(std::fs::TryLockError::Error(error)) => return Err(error.into()),
             }
             println!("cycle_started at={}", Utc::now().to_rfc3339());
+            let started = std::time::Instant::now();
             let snapshot = collect_snapshot(home, Some(directory.clone()), "Asia/Shanghai")?;
             verify_snapshot(&snapshot)?;
+            println!(
+                "collection_ok at={} generated_at={} buckets={} total_tokens={} elapsed_ms={}",
+                Utc::now().to_rfc3339(),
+                snapshot.generated_at,
+                snapshot.buckets.len(),
+                snapshot
+                    .buckets
+                    .iter()
+                    .map(|b| b.tokens.total_tokens)
+                    .sum::<u64>(),
+                started.elapsed().as_millis()
+            );
+            for source in &snapshot.sources {
+                println!("source_result {}", serde_json::to_string(source)?);
+            }
             let queue = outbox::Outbox::open(&directory)?;
             queue.enqueue(&snapshot)?;
             write_json(&directory.join("snapshot.json"), &snapshot)?;
+            println!("credential_read_started at={}", Utc::now().to_rfc3339());
             let credential = read_credentials(&directory)?;
+            println!("credential_read_ok at={}", Utc::now().to_rfc3339());
             let client = Client::builder()
                 .timeout(std::time::Duration::from_secs(60))
                 .build()?;
             while let Some((id, pending)) = queue.oldest()? {
+                let upload_started = std::time::Instant::now();
+                println!(
+                    "upload_started at={} batch_id={} generated_at={} buckets={}",
+                    Utc::now().to_rfc3339(),
+                    id,
+                    pending.generated_at,
+                    pending.buckets.len()
+                );
                 let response = client
                     .post(&ingest_url)
                     .bearer_auth(&credential.device_token)
                     .json(&pending)
                     .send()?;
-                if !response.status().is_success() {
+                let status = response.status();
+                let request_id = response
+                    .headers()
+                    .get("x-tokenstep-request-id")
+                    .and_then(|v| v.to_str().ok())
+                    .and_then(|v| uuid::Uuid::parse_str(v).ok());
+                println!(
+                    "upload_response at={} batch_id={} http_status={} request_id={} elapsed_ms={}",
+                    Utc::now().to_rfc3339(),
+                    id,
+                    status.as_u16(),
+                    request_id
+                        .map(|v| v.to_string())
+                        .unwrap_or_else(|| "none".into()),
+                    upload_started.elapsed().as_millis()
+                );
+                if !status.is_success() {
                     bail!(
                         "upload rejected {}; batch remains in offline queue",
                         response.status()
@@ -194,7 +236,15 @@ fn main() -> Result<()> {
                     bail!("invalid server acknowledgement; batch remains in offline queue");
                 }
                 queue.acknowledge(id)?;
-                println!("batch_acknowledged id={id}");
+                println!(
+                    "batch_acknowledged id={} accepted={} duplicate={}",
+                    id,
+                    acknowledgement["accepted"],
+                    acknowledgement
+                        .get("duplicate")
+                        .and_then(serde_json::Value::as_bool)
+                        .unwrap_or(false)
+                );
             }
             write_json(
                 &directory.join("last-sync.json"),

@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 
 private struct SupabaseAuthResponse: Decodable {
@@ -32,9 +33,11 @@ final class SupabaseCloudStore: ObservableObject {
     private var refreshToken: String?
     private var expiresAt = Date.distantPast
     private var generation = UUID()
-    private let defaults = UserDefaults.standard
+    private let defaults: UserDefaults
 
-    init() {
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        LifecycleLogger.log("cloud_store_initialized authenticated=false")
         projectURL = defaults.string(forKey: "TokenStep.Supabase.URL") ?? ""
         publishableKey = defaults.string(forKey: "TokenStep.Supabase.PublishableKey") ?? ""
         email = defaults.string(forKey: "TokenStep.Supabase.Email") ?? ""
@@ -42,6 +45,7 @@ final class SupabaseCloudStore: ObservableObject {
 
     func signIn() {
         guard !isLoading else { return }
+        LifecycleLogger.log("cloud_sign_in_started")
         persistPublicConfiguration()
         isLoading = true
         errorMessage = nil
@@ -61,10 +65,12 @@ final class SupabaseCloudStore: ObservableObject {
                 expiresAt = Date().addingTimeInterval(Double(auth.expiresIn ?? 3600) - 60)
                 password = ""
                 isAuthenticated = true
+                LifecycleLogger.log("cloud_sign_in_ok")
                 try await loadRows()
             } catch {
                 guard generation == currentGeneration else { return }
                 isAuthenticated = accessToken != nil
+                LifecycleLogger.log("cloud_sign_in_failed category=\(Self.safeError(error))")
                 errorMessage = error.localizedDescription
                 onFailure?(error)
             }
@@ -73,6 +79,7 @@ final class SupabaseCloudStore: ObservableObject {
 
     func refresh() {
         guard !isLoading, accessToken != nil else { return }
+        LifecycleLogger.log("cloud_refresh_started")
         isLoading = true
         errorMessage = nil
         let currentGeneration = generation
@@ -91,12 +98,14 @@ final class SupabaseCloudStore: ObservableObject {
             } catch {
                 guard generation == currentGeneration else { return }
                 errorMessage = error.localizedDescription
+                LifecycleLogger.log("cloud_refresh_failed category=\(Self.safeError(error))")
                 onFailure?(error)
             }
         }
     }
 
     func signOut() {
+        LifecycleLogger.log("cloud_signed_out")
         generation = UUID()
         accessToken = nil
         refreshToken = nil
@@ -110,6 +119,8 @@ final class SupabaseCloudStore: ObservableObject {
     private func loadRows() async throws {
         guard let accessToken else { throw CloudError.notAuthenticated }
         let currentGeneration = generation
+        let started = Date()
+        LifecycleLogger.log("cloud_read_started")
         var result: [CloudUsageRow] = []
         var offset = 0
         while true {
@@ -135,6 +146,7 @@ final class SupabaseCloudStore: ObservableObject {
         rows = result
         hasLoaded = true
         onSnapshot?(CloudSnapshotAdapter.snapshot(rows: result, statuses: statuses))
+        LifecycleLogger.log("cloud_snapshot_applied rows=\(result.count) total_tokens=\(result.reduce(0) { $0 + $1.totalTokens }) devices=\(Set(result.map(\.deviceID)).count) sources=\(statuses.count) elapsed_ms=\(Int(Date().timeIntervalSince(started) * 1000))")
     }
 
     private func persistPublicConfiguration() {
@@ -161,11 +173,23 @@ final class SupabaseCloudStore: ObservableObject {
             request.setValue("Bearer \(authorization)", forHTTPHeaderField: "Authorization")
         }
         if let body { request.httpBody = try JSONEncoder().encode(body) }
+        let endpoint = String(path.split(separator: "?").first ?? "unknown")
+        let started = Date()
+        LifecycleLogger.log("cloud_http_started endpoint=\(endpoint)")
         let (data, response) = try await URLSession.shared.data(for: request)
+        let requestID = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "sb-request-id").flatMap(UUID.init(uuidString:))?.uuidString ?? "none"
+        LifecycleLogger.log("cloud_http endpoint=\(endpoint) status=\((response as? HTTPURLResponse)?.statusCode ?? 0) bytes=\(data.count) request_id=\(requestID) elapsed_ms=\(Int(Date().timeIntervalSince(started) * 1000))")
         guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else {
             throw CloudError.requestRejected
         }
         return try JSONDecoder().decode(Response.self, from: data)
+    }
+
+    private static func safeError(_ error: Error) -> String {
+        if let network = error as? URLError { return "network_\(network.code.rawValue)" }
+        if error is DecodingError { return "decoding" }
+        if error is CloudError { return "cloud_request" }
+        return "unknown"
     }
 }
 
