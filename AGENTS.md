@@ -2,10 +2,39 @@
 
 This file is the persistent project briefing for Codex and other coding agents. Read it before changing the repository. It captures the architecture and constraints established from the source snapshot downloaded on 2026-08-14.
 
+## Cross-platform architecture (active development branch)
+
+### Current authority (2026-10-07)
+
+This section overrides the legacy local-first descriptions below. All production usage pages, popover and share cards now consume one authenticated Supabase store through `CloudSnapshotAdapter` and `AppState`; there is no local usage fallback. Legacy Swift collection is retained for reference/parity fixtures only. Cloud Token buckets use the shared legacy TokenCostEstimator for API list-price cost estimates; these are not actual bills. Fields without authoritative equivalents (tool-call counts, complete cache coverage) render unavailable.
+
+Rust `cycle` owns local collection, durable outbox, upload and exclusive process locking. macOS LaunchAgent `com.tokenstep.collector` uses the stable executable under Application Support/TokenStep/agent/bin. Testing interval is 60 seconds; future production interval is 600 seconds. Keychain authorization for the installed binary is required. Read `docs/CLOUD_MIGRATION_VERIFICATION.md` before changing scheduling, cloud presentation or validating deployment. Original Swift Codex accounting features are not all proven equivalent in Rust.
+
+Privacy: upload sanitized device/project/Agent/model metadata and daily/hourly token aggregates only. Raw logs, code, conversations, full paths and secrets stay local. The Supabase login password is stored in the macOS Keychain per project/account; launch signs in automatically, and explicit sign-out removes the saved password. Access and refresh tokens remain process-memory only. Device upload credentials remain in OS credential storage.
+
+`codex/rust-cross-platform` introduces the new authoritative collection and cloud contract:
+
+- `rust/tokenstep-core`: cross-platform deep collection module. Its external seam is `SourceAdapter`; adapters return normalized `UsageFact` values and safe `SourceDiagnostic` metadata.
+- `rust/tokenstep-agent`: macOS Intel/Windows x64 CLI for `collect`, `verify`, `doctor`, `enroll`, and `sync`.
+- `UsageBucketV1`: cloud payload grouped by the joint dimensions day × Agent × model × project. Do not derive cloud payloads from `UsageSnapshot`, because its separate tool/model/project aggregates have lost those joint relationships.
+- `supabase/`: Postgres migrations plus device-enrollment and ingestion Edge Functions. Collectors never receive a Supabase service-role key.
+- `CloudDashboardView` / `SupabaseCloudService`: display-side Supabase Auth and RLS-protected `usage_dashboard` reads.
+- `docs/CROSS_PLATFORM_ROLLOUT.md`: authoritative deployment and independent verification gates.
+
+The previous Swift collector remains available during parity migration. New source logic should be implemented in Rust and verified with fixtures before the Swift implementation is retired.
+
+Rust verification:
+
+```bash
+./script/verify_rust_collector.sh
+./script/verify_cloud_assets.sh
+cargo test --workspace
+```
+
 ## Repository state
 
 - Upstream: `https://github.com/Backtthefuture/TokenStep`
-- This workspace copy was downloaded from the upstream `main` branch as a GitHub ZIP archive. It contains no upstream `.git` history, so do not assume an exact commit SHA or use history-dependent commands without first restoring Git metadata.
+- This workspace was downloaded as a ZIP without upstream history. Local Git history now starts at backup commit `c556839`, pushed to private repository `ngocvychu38-web/TokenStep-cross-platform`; active branch is `codex/rust-cross-platform`.
 - Product version in the current source and packaging scripts: `0.2.0`.
 - License: MIT.
 - Supported runtime: macOS 14 or newer. Production/release builds default to Apple Silicon (`arm64-apple-macos14.0`); `TOKENSTEP_ARCH=x86_64` produces a local Intel build.

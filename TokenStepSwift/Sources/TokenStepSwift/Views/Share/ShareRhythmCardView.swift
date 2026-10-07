@@ -12,10 +12,7 @@ struct ShareRhythmCardView: View {
     }
 
     var body: some View {
-        ZStack {
-            RhythmCardBackdrop(palette: palette)
-
-            VStack(spacing: 14) {
+        VStack(spacing: 14) {
                 header
                 hero
                 RhythmNeonWavePanel(rhythm: rhythm, palette: palette)
@@ -26,11 +23,13 @@ struct ShareRhythmCardView: View {
             }
             .padding(.horizontal, 30)
             .padding(.vertical, 26)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        }
-        .frame(width: 600, height: 840)
+            .frame(maxWidth: .infinity, alignment: .top)
+        .frame(width: 600)
+        .frame(minHeight: 840, alignment: .top)
+        .fixedSize(horizontal: false, vertical: true)
+        .background(RhythmCardBackdrop(palette: palette))
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .fixedSize()
+
     }
 
     private var header: some View {

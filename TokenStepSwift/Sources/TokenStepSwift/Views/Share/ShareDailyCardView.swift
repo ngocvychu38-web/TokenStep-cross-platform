@@ -37,10 +37,7 @@ struct ShareDailyCardView: View {
     }
 
     var body: some View {
-        ZStack {
-            TokenStepBackdrop()
-
-            VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 14) {
                 header
                 shareHero
                 ShareBreakdownPanel(
@@ -69,9 +66,10 @@ struct ShareDailyCardView: View {
                 footer
             }
             .padding(28)
-        }
-        .frame(width: 600, height: 840)
-        .fixedSize()
+        .frame(width: 600)
+        .frame(minHeight: 840, alignment: .top)
+        .fixedSize(horizontal: false, vertical: true)
+        .background(TokenStepBackdrop())
         .id(appState.appearanceID)
     }
 

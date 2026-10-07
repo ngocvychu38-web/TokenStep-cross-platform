@@ -3,6 +3,7 @@ import SwiftUI
 enum AppSection: String, CaseIterable, Identifiable {
     case today
     case history
+    case cloud
     case privacy
 
     var id: String { rawValue }
@@ -11,6 +12,7 @@ enum AppSection: String, CaseIterable, Identifiable {
         switch self {
         case .today: L("今日")
         case .history: L("历史")
+        case .cloud: L("云端")
         case .privacy: L("隐私")
         }
     }
@@ -19,6 +21,7 @@ enum AppSection: String, CaseIterable, Identifiable {
         switch self {
         case .today: L("今日消耗")
         case .history: L("历史活动")
+        case .cloud: L("多设备数据")
         case .privacy: L("隐私")
         }
     }
@@ -27,6 +30,7 @@ enum AppSection: String, CaseIterable, Identifiable {
         switch self {
         case .today: L("今天的 Token 使用节奏")
         case .history: L("长期节奏和所有历史记录")
+        case .cloud: L("按机器、系统、Agent 和项目查看")
         case .privacy: L("只统计数量，不读取内容")
         }
     }
@@ -35,6 +39,7 @@ enum AppSection: String, CaseIterable, Identifiable {
         switch self {
         case .today: "figure.walk.circle.fill"
         case .history: "square.grid.3x3.fill"
+        case .cloud: "cloud.fill"
         case .privacy: "lock.shield.fill"
         }
     }
@@ -43,6 +48,7 @@ enum AppSection: String, CaseIterable, Identifiable {
         switch self {
         case .today: "today"
         case .history: "history-30d"
+        case .cloud: "cloud-devices"
         case .privacy: "privacy"
         }
     }
@@ -143,6 +149,8 @@ struct MainWindowView: View {
 
                 VStack(alignment: .leading, spacing: 26) {
                     pageHeader
+                    Text(L("所有用量页面读取 Supabase；采集与上传由独立后台代理完成。"))
+                        .font(.caption).foregroundStyle(.secondary)
                     if let error = appState.lastError {
                         ErrorBanner(message: error) {
                             appState.clearError()
@@ -184,7 +192,7 @@ struct MainWindowView: View {
                         Circle()
                             .fill(appState.isRefreshing ? Color.secondary.opacity(0.7) : Color.tokenGreen)
                             .frame(width: 7, height: 7)
-                        Text(appState.isRefreshing ? L("同步中") : L("已同步"))
+                        Text(appState.cloudStatusText)
                             .font(.callout.weight(.bold))
                     }
                     .padding(.horizontal, 13)
@@ -235,13 +243,19 @@ struct MainWindowView: View {
 
     @ViewBuilder
     private var detailView: some View {
+        if !appState.cloudHasLoaded && navigation.section != .privacy {
+            CloudDashboardView(store: appState.cloud)
+        } else {
         switch navigation.section {
         case .today:
             TodayView()
         case .history:
             HistoryView()
+        case .cloud:
+            CloudDashboardView(store: appState.cloud)
         case .privacy:
             PrivacyView()
+        }
         }
     }
 }

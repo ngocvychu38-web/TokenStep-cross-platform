@@ -567,12 +567,9 @@ struct ContributionWallView: View {
     }
 
     var body: some View {
-        let calendar = Calendar(identifier: .gregorian)
+        let calendar = ContributionWallCalendar.calendar
         let today = calendar.startOfDay(for: Date())
-        let rawStart = calendar.date(byAdding: .day, value: -(weeks * 7 - 1), to: today) ?? today
-        let weekday = calendar.component(.weekday, from: rawStart)
-        let mondayOffset = (weekday + 5) % 7
-        let start = calendar.date(byAdding: .day, value: -mondayOffset, to: rawStart) ?? rawStart
+        let start = ContributionWallCalendar.start(endingAt: today, weeks: weeks)
 
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top, spacing: 5) {
@@ -590,6 +587,8 @@ struct ContributionWallView: View {
                                             .stroke(Color.tokenGreenDark, lineWidth: 1.5)
                                     }
                                 }
+                                .help(day > today ? key : "\(key) · \(rowByDate[key]?.totalTokens ?? 0) Token")
+                                .accessibilityLabel(day > today ? key : "\(key) · \(rowByDate[key]?.totalTokens ?? 0) Token")
                         }
                     }
                 }
@@ -642,6 +641,8 @@ func tokenToolColor(_ tool: String) -> Color {
         return Color(red: 0.88, green: 0.42, blue: 0.24)
     case "TeleAgent":
         return Color(red: 0.12, green: 0.62, blue: 0.58)
+    case "Antigravity":
+        return Color(red: 0.24, green: 0.44, blue: 0.88)
     case "Hermes", "Hermes Agent":
         return Color(red: 0.50, green: 0.28, blue: 0.92)
     case "ZCode":
