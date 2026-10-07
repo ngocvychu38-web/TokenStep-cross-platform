@@ -7,6 +7,14 @@ struct PopoverTodayRingCard: View {
         appState.collectionFreshness.kind == .neverSucceeded
     }
 
+    private var visibleDevices: [CloudDeviceUsage] {
+        appState.todayDeviceSources.compactMap { device in
+            var visible = device
+            visible.agents = device.agents.filter { $0.tokens != 0 }
+            return visible.agents.isEmpty ? nil : visible
+        }
+    }
+
     var body: some View {
         let lap = appState.todayLap
         return TokenCard {
@@ -71,12 +79,23 @@ struct PopoverTodayRingCard: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
-                if !appState.todayDeviceSources.isEmpty {
+                HStack(spacing: 12) {
+                    Text(L("历史总 Token")) + Text(" " + (hasNoData ? "—" : TokenStepFormat.tokens(appState.snapshot.totals.tokens, compact: true)))
+                    Spacer(minLength: 4)
+                    Text(L("本月总 Token")) + Text(" " + (hasNoData ? "—" : TokenStepFormat.tokens(appState.currentMonthTokens, compact: true)))
+                }
+                .font(.caption.weight(.bold))
+                .foregroundStyle(Color.tokenInk.opacity(0.82))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.65)
+
+                if !visibleDevices.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(L("今日来源"))
                             .font(.caption2.weight(.heavy))
                             .foregroundStyle(.secondary)
-                        ForEach(appState.todayDeviceSources) { device in
+                        ForEach(visibleDevices) { device in
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack(spacing: 6) {
                                     Image(systemName: device.osFamily == "windows" ? "pc" : "laptopcomputer")

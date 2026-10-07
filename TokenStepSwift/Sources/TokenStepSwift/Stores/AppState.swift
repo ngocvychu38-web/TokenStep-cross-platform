@@ -91,6 +91,11 @@ final class AppState: ObservableObject {
             ?? DailyUsage(date: key, tools: [:], totalTokens: 0, cost: 0)
     }
 
+    var currentMonthTokens: Int {
+        let month = String(today.date.prefix(7)) + "-"
+        return snapshot.daily.filter { $0.date.hasPrefix(month) }.reduce(0) { $0 + $1.totalTokens }
+    }
+
     var todayAgentWork: DailyAgentWork {
         let key = DateFormatter.tokenStepDay.string(from: Date())
         return agentWork(for: key)
