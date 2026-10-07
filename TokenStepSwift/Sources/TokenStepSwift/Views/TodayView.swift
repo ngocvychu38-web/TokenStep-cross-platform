@@ -143,7 +143,7 @@ struct TodayView: View {
                             value: hasNoData ? "—" : TokenStepFormat.money(appState.today.cost)
                         )
                         .help(L("按 API 列表价估算，不代表订阅或实际账单。"))
-                        MetricPill(label: L("本月均值"), value: TokenStepFormat.tokens(appState.monthAverage, compact: true))
+                        MetricPill(label: L("近 30 天均值"), value: TokenStepFormat.tokens(appState.monthAverage, compact: true))
                     }
                 }
 

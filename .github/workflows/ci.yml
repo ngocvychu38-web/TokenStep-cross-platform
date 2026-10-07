@@ -88,5 +88,7 @@ jobs:
         run: ./script/test_contribution_wall_calendar.sh
       - name: Render settings cards check
         run: ./script/render_settings_cards.sh
+      - name: Verify all screenshot exports
+        run: ./script/test_screenshot_exports.sh
       - name: Build TokenStep
         run: ./script/build_swiftui_and_run.sh --no-launch

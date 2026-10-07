@@ -4,7 +4,7 @@ import Combine
 
 @MainActor
 final class AppState: ObservableObject {
-    let cloud = SupabaseCloudStore()
+    let cloud: SupabaseCloudStore
     var todayDeviceSources: [CloudDeviceUsage] {
         CloudSnapshotAdapter.deviceSources(rows: cloud.rows, date: today.date, statuses: cloud.sourceStatuses)
     }
@@ -54,7 +54,9 @@ final class AppState: ObservableObject {
     private var lastAutomaticUsageRefreshAttemptAt: Date?
     private var lastUsageObservedAt: Date?
 
-    init() {
+    init(cloud injectedCloud: SupabaseCloudStore? = nil, startServices: Bool = true) {
+        self.cloud = injectedCloud ?? SupabaseCloudStore()
+        let cloud = self.cloud
         cloudSubscription = cloud.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
         cloud.onSnapshot = { [weak self] snapshot in self?.acceptCloudSnapshot(snapshot) }
         cloud.onFailure = { [weak self] error in
@@ -70,6 +72,7 @@ final class AppState: ObservableObject {
             self?.recomputeFreshness()
         }
         recomputeFreshness()
+        guard startServices else { return }
         load()
         refreshIfSnapshotIsStale()
         applyDefaultAutostartIfNeeded()
