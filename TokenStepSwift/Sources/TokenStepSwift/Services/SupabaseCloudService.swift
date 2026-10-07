@@ -21,6 +21,7 @@ final class SupabaseCloudStore: ObservableObject {
     @Published var email: String
     @Published var password = ""
     @Published private(set) var rows: [CloudUsageRow] = []
+    @Published private(set) var sourceStatuses: [CloudSourceStatus] = []
     @Published private(set) var isAuthenticated = false
     @Published private(set) var isLoading = false
     @Published var errorMessage: String?
@@ -111,6 +112,7 @@ final class SupabaseCloudStore: ObservableObject {
         refreshToken = nil
         password = ""
         rows = []
+        sourceStatuses = []
         isAuthenticated = false
         hasLoaded = false
         onReset?()
@@ -136,7 +138,7 @@ final class SupabaseCloudStore: ObservableObject {
         offset = 0
         while true {
             let page: [CloudSourceStatus] = try await request(
-                path: "/rest/v1/source_sync_status?select=agent_key,state,files,records,last_succeeded_at&order=device_id,agent_key&limit=1000&offset=\(offset)",
+                path: "/rest/v1/source_sync_status?select=device_id,agent_key,state,files,records,last_succeeded_at&order=device_id,agent_key&limit=1000&offset=\(offset)",
                 method: "GET", body: Optional<[String: String]>.none, authorization: accessToken)
             if page.isEmpty { break }
             statuses.append(contentsOf: page)
@@ -144,9 +146,15 @@ final class SupabaseCloudStore: ObservableObject {
         }
         guard generation == currentGeneration else { return }
         rows = result
+        sourceStatuses = statuses
         hasLoaded = true
         onSnapshot?(CloudSnapshotAdapter.snapshot(rows: result, statuses: statuses))
         LifecycleLogger.log("cloud_snapshot_applied rows=\(result.count) total_tokens=\(result.reduce(0) { $0 + $1.totalTokens }) devices=\(Set(result.map(\.deviceID)).count) sources=\(statuses.count) elapsed_ms=\(Int(Date().timeIntervalSince(started) * 1000))")
+        let antigravity = result.filter { $0.agentKey.lowercased() == "antigravity" }
+        let date = DateFormatter.tokenStepDay.string(from: Date())
+        let today = antigravity.filter { $0.localDate == date }
+        let latestDate = String((antigravity.map(\.localDate).max() ?? "none").filter { $0.isNumber || $0 == "-" }.prefix(10))
+        LifecycleLogger.log("cloud_antigravity_applied rows=\(antigravity.count) today_rows=\(today.count) today_tokens=\(today.reduce(0) { $0 + $1.totalTokens }) latest_date=\(latestDate)")
     }
 
     private func persistPublicConfiguration() {

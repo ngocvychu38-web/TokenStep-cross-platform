@@ -145,7 +145,7 @@ struct PopoverTodayRingCard: View {
 
 private struct TodaySourceMetric: View {
     var name: String
-    var tokens: Int
+    var tokens: Int?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
@@ -158,7 +158,7 @@ private struct TodaySourceMetric: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
-            Text(TokenStepFormat.tokens(tokens, compact: true))
+            Text(tokens.map { TokenStepFormat.tokens($0, compact: true) } ?? "—")
                 .font(.caption.weight(.heavy))
                 .foregroundStyle(Color.tokenInk.opacity(0.82))
                 .monospacedDigit()

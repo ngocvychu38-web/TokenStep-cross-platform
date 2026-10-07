@@ -2,26 +2,41 @@ import Foundation
 
 /// All usage surfaces cross this single seam. Never reads local collector files.
 enum CloudSnapshotAdapter {
-    static func deviceSources(rows: [CloudUsageRow], date: String) -> [CloudDeviceUsage] {
+    static func deviceSources(rows: [CloudUsageRow], date: String, statuses: [CloudSourceStatus] = []) -> [CloudDeviceUsage] {
         let unique = Dictionary(rows.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest }).values
-        let devices = Dictionary(grouping: unique.filter { $0.localDate == date && $0.totalTokens > 0 }, by: \.deviceID)
-        return devices.map { deviceID, rows in
+        let devices = Dictionary(grouping: unique, by: \.deviceID)
+        return devices.compactMap { deviceID, rows -> CloudDeviceUsage? in
+            let todayRows = rows.filter { $0.localDate == date && $0.totalTokens > 0 }
+            guard !todayRows.isEmpty || rows.contains(where: { sourceDay($0.lastSeenAt) == date })
+                || statuses.contains(where: { $0.device_id == deviceID && $0.state == "ok" && sourceDay($0.last_succeeded_at) == date }) else { return nil }
             let metadata = rows.sorted { $0.id < $1.id }[0]
             let byAgent = Dictionary(grouping: rows, by: \.agentKey)
             var agents: [CloudAgentUsage] = []
             for (key, agentRows) in byAgent {
-                let name = agentRows.sorted { $0.id < $1.id }[0].agentName
-                let tokens = agentRows.reduce(0) { $0 + $1.totalTokens }
+                let name = key.lowercased() == "antigravity" ? "Antigravity" : agentRows.sorted { $0.id < $1.id }[0].agentName
+                let todayAgentRows = agentRows.filter { $0.localDate == date }
+                let status = statuses.first { $0.device_id == deviceID && $0.agent_key == key }
+                let capturedToday = status?.state == "ok" && sourceDay(status?.last_succeeded_at) == date
+                let tokens: Int? = !todayAgentRows.isEmpty || capturedToday
+                    ? todayAgentRows.reduce(0) { $0 + $1.totalTokens } : nil
                 agents.append(CloudAgentUsage(id: key, name: name, tokens: tokens))
             }
-            agents.sort { $0.tokens == $1.tokens ? $0.id < $1.id : $0.tokens > $1.tokens }
+            agents.sort { $0.tokens == $1.tokens ? $0.id < $1.id : ($0.tokens ?? 0) > ($1.tokens ?? 0) }
             return CloudDeviceUsage(id: deviceID, name: metadata.deviceName, osFamily: metadata.osFamily,
-                tokens: agents.reduce(0) { $0 + $1.tokens }, agents: agents)
+                tokens: todayRows.reduce(0) { $0 + $1.totalTokens }, agents: agents)
         }.sorted {
             if $0.tokens != $1.tokens { return $0.tokens > $1.tokens }
             if $0.name != $1.name { return $0.name < $1.name }
             return $0.id.uuidString < $1.id.uuidString
         }
+    }
+
+    private static func sourceDay(_ timestamp: String?) -> String? {
+        guard let timestamp else { return nil }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let date = formatter.date(from: timestamp) ?? ISO8601DateFormatter().date(from: timestamp)
+        return date.map { DateFormatter.tokenStepDay.string(from: $0) }
     }
 
     static func snapshot(rows: [CloudUsageRow], statuses: [CloudSourceStatus] = []) -> UsageSnapshot {

@@ -11,7 +11,7 @@ struct CloudDeviceUsage: Identifiable {
 struct CloudAgentUsage: Identifiable {
     var id: String
     var name: String
-    var tokens: Int
+    var tokens: Int?
 }
 
 struct CloudUsageRow: Codable, Identifiable, Equatable {
@@ -82,6 +82,7 @@ struct CloudHourUsage: Codable, Equatable {
 }
 
 struct CloudSourceStatus: Decodable {
+    var device_id: UUID? = nil
     var agent_key: String
     var state: String
     var files: Int

@@ -40,6 +40,21 @@ struct CloudSnapshotFixtureCheck {
         precondition(devices[0].agents[0].name == "TeleAgent")
         precondition(devices.reduce(0) { $0 + $1.tokens } == 72)
         precondition(CloudSnapshotAdapter.deviceSources(rows: rows, date: "2026-10-08").isEmpty)
+        var antigravity = second
+        antigravity.agentKey = "antigravity"
+        antigravity.agentName = "antigravity"
+        var extraModel = antigravity
+        extraModel.model = "gemini"
+        let windows = CloudSnapshotAdapter.deviceSources(rows: [antigravity, extraModel, antigravity], date: "2026-10-07")
+        precondition(windows.count == 1 && windows[0].osFamily == "windows")
+        precondition(windows[0].agents[0].name == "Antigravity" && windows[0].agents[0].tokens == 36)
+        antigravity.localDate = "2026-10-06"
+        let fresh = CloudSourceStatus(device_id: second.deviceID, agent_key: "antigravity", state: "ok", files: 1, records: 1, last_succeeded_at: "2026-10-07T01:00:00.123Z")
+        precondition(CloudSnapshotAdapter.deviceSources(rows: [antigravity], date: "2026-10-07", statuses: [fresh])[0].agents[0].tokens == 0)
+        precondition(CloudSnapshotAdapter.deviceSources(rows: [antigravity], date: "2026-10-07")[0].agents[0].tokens == nil)
+        var failed = fresh
+        failed.state = "error"
+        precondition(CloudSnapshotAdapter.deviceSources(rows: [antigravity], date: "2026-10-07", statuses: [failed])[0].agents[0].tokens == nil)
         rows[0].hourlyUsage = nil
         let legacy = CloudSnapshotAdapter.snapshot(rows: [rows[0]])
         precondition(legacy.totals.tokens == 18 && legacy.agentWork[0].unbucketedTokens == 18)
@@ -59,6 +74,7 @@ struct CloudSnapshotFixtureCheck {
         store.signIn()
         for _ in 0..<500 where store.isLoading { try await Task.sleep(nanoseconds: 10_000_000) }
         precondition(store.isAuthenticated && store.hasLoaded && applied == 1)
+        precondition(store.sourceStatuses.count == 1 && store.sourceStatuses[0].device_id == second.deviceID)
         precondition(LifecycleLogger.lines.contains { $0.contains("cloud_snapshot_applied rows=0") })
         CloudHTTPFixture.reject = true
         store.refresh()
@@ -66,7 +82,7 @@ struct CloudSnapshotFixtureCheck {
         precondition(store.errorMessage != nil && store.hasLoaded && applied == 1)
         precondition(LifecycleLogger.lines.contains { $0.contains("cloud_refresh_failed") })
         store.signOut()
-        precondition(!store.isAuthenticated && !store.hasLoaded)
+        precondition(!store.isAuthenticated && !store.hasLoaded && store.sourceStatuses.isEmpty)
         let logs = LifecycleLogger.lines.joined(separator: "\n")
         for secret in ["fixture-password-secret", "fixture-access-secret", "fixture-refresh-secret", "fixture@example.invalid", "fixture-publishable"] {
             precondition(!logs.contains(secret))
@@ -87,7 +103,10 @@ final class CloudHTTPFixture: URLProtocol {
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
         let auth = request.url?.path.contains("/auth/") == true
-        let body = auth ? "{\"access_token\":\"fixture-access-secret\",\"refresh_token\":\"fixture-refresh-secret\",\"expires_in\":3600}" : "[]"
+        let statusBody = """
+        [{"device_id":"cccccccc-cccc-cccc-cccc-cccccccccccc","agent_key":"antigravity","state":"ok","files":1,"records":1,"last_succeeded_at":"2026-10-07T01:00:00Z"}]
+        """
+        let body = auth ? "{\"access_token\":\"fixture-access-secret\",\"refresh_token\":\"fixture-refresh-secret\",\"expires_in\":3600}" : (request.url?.path.contains("source_sync_status") == true && URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "offset" })?.value == "0" ? statusBody : "[]")
         let response = HTTPURLResponse(url: request.url!, statusCode: Self.reject ? 503 : 200, httpVersion: nil, headerFields: nil)!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: Data(body.utf8))

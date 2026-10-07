@@ -43,6 +43,7 @@ swiftc \
   -Xcc -ivfsoverlay \
   -Xcc "$OVERLAY_FILE" \
   -parse-as-library \
+  "$SWIFT_DIR/Sources/TokenStepSwift/Support/Formatters.swift" \
   "$SWIFT_DIR/Sources/TokenStepSwift/Support/AppPaths.swift" \
   "$SWIFT_DIR/Sources/TokenStepSwift/Support/Localization.swift" \
   "$SWIFT_DIR/Sources/TokenStepSwift/Support/Theme.swift" \

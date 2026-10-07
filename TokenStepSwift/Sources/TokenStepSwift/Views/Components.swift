@@ -642,6 +642,8 @@ func tokenToolColor(_ tool: String) -> Color {
         return Color(red: 0.88, green: 0.42, blue: 0.24)
     case "TeleAgent":
         return Color(red: 0.12, green: 0.62, blue: 0.58)
+    case "Antigravity":
+        return Color(red: 0.24, green: 0.44, blue: 0.88)
     case "Hermes", "Hermes Agent":
         return Color(red: 0.50, green: 0.28, blue: 0.92)
     case "ZCode":
