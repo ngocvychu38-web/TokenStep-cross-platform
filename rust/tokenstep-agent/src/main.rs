@@ -515,11 +515,11 @@ fn default_home() -> PathBuf {
 fn default_state_dir() -> PathBuf {
     #[cfg(target_os = "windows")]
     {
-        return env::var_os("LOCALAPPDATA")
+        env::var_os("LOCALAPPDATA")
             .map(PathBuf::from)
             .unwrap_or_else(default_home)
             .join("TokenStep")
-            .join("agent");
+            .join("agent")
     }
     #[cfg(not(target_os = "windows"))]
     {

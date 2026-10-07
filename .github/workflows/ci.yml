@@ -37,7 +37,21 @@ jobs:
       - name: Lint Rust workspace
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Build collector release
+        env:
+          RUSTFLAGS: ${{ runner.os == 'Windows' && '-C target-feature=+crt-static' || '' }}
         run: cargo build --release -p tokenstep-agent
+      - name: Package Windows installer
+        if: runner.os == 'Windows'
+        run: ./script/windows/package-windows.ps1
+      - name: Verify Windows installer
+        if: runner.os == 'Windows'
+        run: ./script/windows/test-windows-package.ps1
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows'
+        with:
+          name: TokenStep-Agent-0.1.0-windows-x64-installer
+          path: release/windows/TokenStep-Agent-0.1.0-windows-x64.zip
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: tokenstep-agent-${{ matrix.os }}
