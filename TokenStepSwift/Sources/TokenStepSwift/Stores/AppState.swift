@@ -5,6 +5,9 @@ import Combine
 @MainActor
 final class AppState: ObservableObject {
     let cloud = SupabaseCloudStore()
+    var todayDeviceSources: [CloudDeviceUsage] {
+        CloudSnapshotAdapter.deviceSources(rows: cloud.rows, date: today.date)
+    }
     let usesCloudData = true
     @Published private(set) var cloudHasLoaded = false
     var cloudStatusText: String {

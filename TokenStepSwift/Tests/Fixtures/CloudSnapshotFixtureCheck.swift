@@ -24,6 +24,22 @@ struct CloudSnapshotFixtureCheck {
         precondition(result.agentWork[0].unbucketedTokens == 0)
         precondition(result.rhythms[0].totalTokens == 36)
         precondition(result.agentWork[0].cacheHitRate == nil) // No invented coverage.
+        var sameAgentModel = rows[0]
+        sameAgentModel.model = "another-model"
+        var codex = rows[0]
+        codex.agentKey = "codex"
+        codex.agentName = "Codex"
+        var previousDay = rows[0]
+        previousDay.localDate = "2026-10-06"
+        var sameNameDevice = second
+        sameNameDevice.deviceName = rows[0].deviceName
+        let devices = CloudSnapshotAdapter.deviceSources(rows: [rows[0], rows[0], sameAgentModel, codex, previousDay, sameNameDevice], date: "2026-10-07")
+        precondition(devices.count == 2) // Device identity, never display name, defines a computer.
+        precondition(devices[0].tokens == 54 && devices[1].tokens == 18)
+        precondition(devices[0].agents.count == 2 && devices[0].agents[0].tokens == 36)
+        precondition(devices[0].agents[0].name == "TeleAgent")
+        precondition(devices.reduce(0) { $0 + $1.tokens } == 72)
+        precondition(CloudSnapshotAdapter.deviceSources(rows: rows, date: "2026-10-08").isEmpty)
         rows[0].hourlyUsage = nil
         let legacy = CloudSnapshotAdapter.snapshot(rows: [rows[0]])
         precondition(legacy.totals.tokens == 18 && legacy.agentWork[0].unbucketedTokens == 18)

@@ -2,6 +2,28 @@ import Foundation
 
 /// All usage surfaces cross this single seam. Never reads local collector files.
 enum CloudSnapshotAdapter {
+    static func deviceSources(rows: [CloudUsageRow], date: String) -> [CloudDeviceUsage] {
+        let unique = Dictionary(rows.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest }).values
+        let devices = Dictionary(grouping: unique.filter { $0.localDate == date && $0.totalTokens > 0 }, by: \.deviceID)
+        return devices.map { deviceID, rows in
+            let metadata = rows.sorted { $0.id < $1.id }[0]
+            let byAgent = Dictionary(grouping: rows, by: \.agentKey)
+            var agents: [CloudAgentUsage] = []
+            for (key, agentRows) in byAgent {
+                let name = agentRows.sorted { $0.id < $1.id }[0].agentName
+                let tokens = agentRows.reduce(0) { $0 + $1.totalTokens }
+                agents.append(CloudAgentUsage(id: key, name: name, tokens: tokens))
+            }
+            agents.sort { $0.tokens == $1.tokens ? $0.id < $1.id : $0.tokens > $1.tokens }
+            return CloudDeviceUsage(id: deviceID, name: metadata.deviceName, osFamily: metadata.osFamily,
+                tokens: agents.reduce(0) { $0 + $1.tokens }, agents: agents)
+        }.sorted {
+            if $0.tokens != $1.tokens { return $0.tokens > $1.tokens }
+            if $0.name != $1.name { return $0.name < $1.name }
+            return $0.id.uuidString < $1.id.uuidString
+        }
+    }
+
     static func snapshot(rows: [CloudUsageRow], statuses: [CloudSourceStatus] = []) -> UsageSnapshot {
         let rows = Dictionary(rows.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest }).values
         let all = Array(rows)

@@ -1,5 +1,19 @@
 import Foundation
 
+struct CloudDeviceUsage: Identifiable {
+    var id: UUID
+    var name: String
+    var osFamily: String
+    var tokens: Int
+    var agents: [CloudAgentUsage]
+}
+
+struct CloudAgentUsage: Identifiable {
+    var id: String
+    var name: String
+    var tokens: Int
+}
+
 struct CloudUsageRow: Codable, Identifiable, Equatable {
     var workspaceID: UUID
     var localDate: String
