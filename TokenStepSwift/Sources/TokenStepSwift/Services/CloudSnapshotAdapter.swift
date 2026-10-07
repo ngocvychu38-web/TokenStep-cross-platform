@@ -47,7 +47,7 @@ enum CloudSnapshotAdapter {
         let daily = byDay.keys.sorted().map { day in
             let dayRows = byDay[day] ?? []
             return DailyUsage(date: day, tools: totals(dayRows, by: \.agentName), models: totals(dayRows, by: \.model),
-                totalTokens: dayRows.reduce(0) { $0 + $1.totalTokens }, cost: 0, projects: projects(dayRows))
+                totalTokens: dayRows.reduce(0) { $0 + $1.totalTokens }, cost: dayRows.reduce(0) { $0 + estimatedCost($1) }, projects: projects(dayRows))
         }
         let work = byDay.keys.sorted().map { day -> DailyAgentWork in
             let dayRows = byDay[day] ?? []
@@ -94,7 +94,7 @@ enum CloudSnapshotAdapter {
             sources[name] = info
         }
         return UsageSnapshot(generatedAt: all.compactMap(\.lastSeenAt).max(), timezone: "Asia/Shanghai",
-            totals: UsageTotals(tokens: total, cost: 0, activeDays: daily.filter { $0.totalTokens > 0 }.count),
+            totals: UsageTotals(tokens: total, cost: all.reduce(0) { $0 + estimatedCost($1) }, activeDays: daily.filter { $0.totalTokens > 0 }.count),
             daily: daily, rhythms: rhythms, agentWork: work,
             tools: totals(all, by: \.agentName).sorted { $0.value > $1.value }.map {
                 ToolUsage(tool: $0.key, tokens: $0.value, percent: total > 0 ? Double($0.value) * 100 / Double(total) : 0)
@@ -105,13 +105,22 @@ enum CloudSnapshotAdapter {
             }.sorted { $0.tokens > $1.tokens }, sources: sources, projects: projects(all))
     }
 
+    private static func estimatedCost(_ row: CloudUsageRow) -> Double {
+        // Cloud input excludes cache buckets; legacy pricing expects inclusive input.
+        TokenCostEstimator.estimate(usage: .init(
+            inputTokens: row.inputTokens + row.cacheReadTokens + row.cacheWriteTokens,
+            outputTokens: row.outputTokens, cacheCreationInputTokens: row.cacheWriteTokens,
+            cacheReadInputTokens: row.cacheReadTokens, totalTokens: row.totalTokens),
+            tool: row.agentName, model: row.model)
+    }
+
     private static func totals(_ rows: [CloudUsageRow], by key: KeyPath<CloudUsageRow, String>) -> [String: Int] {
         rows.reduce(into: [:]) { $0[$1[keyPath: key], default: 0] += $1.totalTokens }
     }
 
     private static func projects(_ rows: [CloudUsageRow]) -> [ProjectUsage] {
         Dictionary(grouping: rows, by: \.projectName).map { name, rows in
-            ProjectUsage(name: name, tokens: rows.reduce(0) { $0 + $1.totalTokens }, cost: 0,
+            ProjectUsage(name: name, tokens: rows.reduce(0) { $0 + $1.totalTokens }, cost: rows.reduce(0) { $0 + estimatedCost($1) },
                 tools: totals(rows, by: \.agentName), models: totals(rows, by: \.model))
         }.sorted { $0.tokens > $1.tokens }
     }

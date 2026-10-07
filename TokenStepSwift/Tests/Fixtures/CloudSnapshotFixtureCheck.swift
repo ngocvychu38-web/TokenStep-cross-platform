@@ -15,6 +15,22 @@ struct CloudSnapshotFixtureCheck {
         rows.append(rows[0]) // Accidental duplicate pagination must not double count.
         let result = CloudSnapshotAdapter.snapshot(rows: rows)
         precondition(result.totals.tokens == 36)
+        precondition(abs(result.totals.cost - 0.000036) < 1e-12)
+        var priced = rows[0]
+        priced.agentKey = "codex"
+        priced.agentName = "Codex"
+        priced.model = "gpt-5.5"
+        priced.inputTokens = 1_000_000
+        priced.outputTokens = 1_000_000
+        priced.cacheReadTokens = 1_000_000
+        priced.cacheWriteTokens = 1_000_000
+        let pricedSnapshot = CloudSnapshotAdapter.snapshot(rows: [priced, priced])
+        precondition(abs(pricedSnapshot.totals.cost - 40.5) < 1e-9)
+        precondition(pricedSnapshot.daily[0].cost == pricedSnapshot.totals.cost)
+        precondition(pricedSnapshot.projects[0].cost == pricedSnapshot.totals.cost)
+        priced.agentName = "Claude Code"
+        priced.model = "claude-sonnet"
+        precondition(abs(CloudSnapshotAdapter.snapshot(rows: [priced]).totals.cost - 22.05) < 1e-9)
         precondition(result.daily[0].totalTokens == 36)
         precondition(result.daily[0].tools["TeleAgent"] == 36)
         precondition(result.tools[0].tokens == 36 && result.models[0].tokens == 36)

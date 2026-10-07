@@ -70,7 +70,7 @@ struct PopoverTodayRingCard: View {
                         VStack(alignment: .leading, spacing: 8) {
                             MetricPill(
                                 label: L("消耗金额（估算）"),
-                                value: hasNoData || appState.usesCloudData ? "—" : TokenStepFormat.money(appState.today.cost)
+                                value: hasNoData ? "—" : TokenStepFormat.money(appState.today.cost)
                             )
                             .help(L("按 API 列表价估算，不代表订阅或实际账单。"))
                             MetricPill(label: L("活跃"), value: localizedDays(appState.snapshot.totals.activeDays))

@@ -140,7 +140,7 @@ struct TodayView: View {
                     HStack(spacing: 10) {
                         MetricPill(
                             label: L("消耗金额（估算）"),
-                            value: hasNoData || appState.usesCloudData ? "—" : TokenStepFormat.money(appState.today.cost)
+                            value: hasNoData ? "—" : TokenStepFormat.money(appState.today.cost)
                         )
                         .help(L("按 API 列表价估算，不代表订阅或实际账单。"))
                         MetricPill(label: L("本月均值"), value: TokenStepFormat.tokens(appState.monthAverage, compact: true))

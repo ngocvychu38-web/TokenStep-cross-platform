@@ -204,7 +204,7 @@ struct ShareDailyCardView: View {
             ),
             ShareHeroRow(
                 title: L("消耗金额"),
-                name: appState.usesCloudData ? "—" : TokenStepFormat.money(day.cost),
+                name: TokenStepFormat.money(day.cost),
                 value: L("仅供参考")
             )
         ]

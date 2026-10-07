@@ -107,7 +107,7 @@ private struct HistoryRow: View {
                 .fontWeight(.heavy)
                 .foregroundStyle(Color.tokenInk)
                 .frame(width: 150, alignment: .leading)
-            Text(appState.usesCloudData ? "—" : TokenStepFormat.money(row.cost))
+            Text(TokenStepFormat.money(row.cost))
                 .frame(width: 126, alignment: .leading)
                 .foregroundStyle(Color.tokenInk.opacity(0.72))
             HStack(spacing: 8) {
