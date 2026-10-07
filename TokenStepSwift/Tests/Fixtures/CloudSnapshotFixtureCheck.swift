@@ -64,7 +64,8 @@ struct CloudSnapshotFixtureCheck {
         let suite = "TokenStep.CloudFixture.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
-        let store = SupabaseCloudStore(defaults: defaults)
+        let passwords = FixturePasswordStorage()
+        let store = SupabaseCloudStore(defaults: defaults, passwordStorage: passwords)
         store.projectURL = "https://fixture.invalid"
         store.publishableKey = "fixture-publishable"
         store.email = "fixture@example.invalid"
@@ -76,13 +77,29 @@ struct CloudSnapshotFixtureCheck {
         precondition(store.isAuthenticated && store.hasLoaded && applied == 1)
         precondition(store.sourceStatuses.count == 1 && store.sourceStatuses[0].device_id == second.deviceID)
         precondition(LifecycleLogger.lines.contains { $0.contains("cloud_snapshot_applied rows=0") })
+        let restored = SupabaseCloudStore(defaults: defaults, passwordStorage: passwords)
+        restored.restoreLogin()
+        for _ in 0..<500 where restored.isLoading { try await Task.sleep(nanoseconds: 10_000_000) }
+        precondition(restored.isAuthenticated && restored.hasLoaded && restored.password.isEmpty)
+        precondition(defaults.string(forKey: "TokenStep.Supabase.Password") == nil)
         CloudHTTPFixture.reject = true
         store.refresh()
         for _ in 0..<500 where store.isLoading { try await Task.sleep(nanoseconds: 10_000_000) }
         precondition(store.errorMessage != nil && store.hasLoaded && applied == 1)
+        precondition(!passwords.values.isEmpty) // Temporary cloud failure must keep automatic login.
+        let otherDefaults = UserDefaults(suiteName: "TokenStep.CloudOther.\(UUID().uuidString)")!
+        otherDefaults.set("https://other.invalid", forKey: "TokenStep.Supabase.URL")
+        otherDefaults.set("fixture@example.invalid", forKey: "TokenStep.Supabase.Email")
+        let otherProject = SupabaseCloudStore(defaults: otherDefaults, passwordStorage: passwords)
+        otherProject.restoreLogin()
+        precondition(!otherProject.isLoading && !otherProject.isAuthenticated)
         precondition(LifecycleLogger.lines.contains { $0.contains("cloud_refresh_failed") })
         store.signOut()
         precondition(!store.isAuthenticated && !store.hasLoaded && store.sourceStatuses.isEmpty)
+        precondition(passwords.values.isEmpty)
+        let signedOut = SupabaseCloudStore(defaults: defaults, passwordStorage: passwords)
+        signedOut.restoreLogin()
+        precondition(!signedOut.isLoading && !signedOut.isAuthenticated)
         let logs = LifecycleLogger.lines.joined(separator: "\n")
         for secret in ["fixture-password-secret", "fixture-access-secret", "fixture-refresh-secret", "fixture@example.invalid", "fixture-publishable"] {
             precondition(!logs.contains(secret))
@@ -113,4 +130,11 @@ final class CloudHTTPFixture: URLProtocol {
         client?.urlProtocolDidFinishLoading(self)
     }
     override func stopLoading() {}
+}
+
+final class FixturePasswordStorage: CloudPasswordStorage {
+    var values: [String: String] = [:]
+    func read(account: String) -> String? { values[account] }
+    func save(_ password: String, account: String) -> Bool { values[account] = password; return true }
+    func delete(account: String) { values.removeValue(forKey: account) }
 }

@@ -1,6 +1,47 @@
 import Foundation
 import Combine
+import Security
 
+
+protocol CloudPasswordStorage {
+    func read(account: String) -> String?
+    func save(_ password: String, account: String) -> Bool
+    func delete(account: String)
+}
+
+struct CloudKeychainPasswordStorage: CloudPasswordStorage {
+    private func query(_ account: String) -> [String: Any] {
+        [kSecClass as String: kSecClassGenericPassword,
+         kSecAttrService as String: "com.huangshu.TokenStep.supabase-login",
+         kSecAttrAccount as String: account]
+    }
+
+    func read(account: String) -> String? {
+        var attributes = query(account)
+        attributes[kSecReturnData as String] = true
+        attributes[kSecMatchLimit as String] = kSecMatchLimitOne
+        var result: CFTypeRef?
+        guard SecItemCopyMatching(attributes as CFDictionary, &result) == errSecSuccess,
+              let data = result as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    func save(_ password: String, account: String) -> Bool {
+        let data = Data(password.utf8)
+        let status = SecItemUpdate(query(account) as CFDictionary,
+                                   [kSecValueData as String: data] as CFDictionary)
+        if status == errSecSuccess { return true }
+        guard status == errSecItemNotFound else { return false }
+        var attributes = query(account)
+        attributes[kSecValueData as String] = data
+        attributes[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        return SecItemAdd(attributes as CFDictionary, nil) == errSecSuccess
+    }
+
+    func delete(account: String) {
+        SecItemDelete(query(account) as CFDictionary)
+    }
+}
 
 private struct SupabaseAuthResponse: Decodable {
     var accessToken: String
@@ -35,13 +76,26 @@ final class SupabaseCloudStore: ObservableObject {
     private var expiresAt = Date.distantPast
     private var generation = UUID()
     private let defaults: UserDefaults
+    private let passwordStorage: any CloudPasswordStorage
+    private var credentialAccount: String?
 
-    init(defaults: UserDefaults = .standard) {
+    private var loginAccount: String {
+        projectURL.trimmingCharacters(in: CharacterSet(charactersIn: "/ ")).lowercased() + "|" + email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    init(defaults: UserDefaults = .standard, passwordStorage: any CloudPasswordStorage = CloudKeychainPasswordStorage()) {
+        self.passwordStorage = passwordStorage
         self.defaults = defaults
         LifecycleLogger.log("cloud_store_initialized authenticated=false")
         projectURL = defaults.string(forKey: "TokenStep.Supabase.URL") ?? ""
         publishableKey = defaults.string(forKey: "TokenStep.Supabase.PublishableKey") ?? ""
         email = defaults.string(forKey: "TokenStep.Supabase.Email") ?? ""
+    }
+
+    func restoreLogin() {
+        guard !isAuthenticated, !isLoading, let saved = passwordStorage.read(account: loginAccount) else { return }
+        password = saved
+        signIn()
     }
 
     func signIn() {
@@ -51,6 +105,8 @@ final class SupabaseCloudStore: ObservableObject {
         isLoading = true
         errorMessage = nil
         let currentGeneration = generation
+        let attemptedAccount = loginAccount
+        let attemptedPassword = password
         Task {
             defer { isLoading = false }
             do {
@@ -64,6 +120,10 @@ final class SupabaseCloudStore: ObservableObject {
                 accessToken = auth.accessToken
                 refreshToken = auth.refreshToken
                 expiresAt = Date().addingTimeInterval(Double(auth.expiresIn ?? 3600) - 60)
+                credentialAccount = attemptedAccount
+                if !passwordStorage.save(attemptedPassword, account: attemptedAccount) {
+                    LifecycleLogger.log("cloud_password_save_failed")
+                }
                 password = ""
                 isAuthenticated = true
                 LifecycleLogger.log("cloud_sign_in_ok")
@@ -107,6 +167,8 @@ final class SupabaseCloudStore: ObservableObject {
 
     func signOut() {
         LifecycleLogger.log("cloud_signed_out")
+        passwordStorage.delete(account: credentialAccount ?? loginAccount)
+        credentialAccount = nil
         generation = UUID()
         accessToken = nil
         refreshToken = nil

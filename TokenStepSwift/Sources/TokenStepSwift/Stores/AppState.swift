@@ -74,6 +74,7 @@ final class AppState: ObservableObject {
         refreshIfSnapshotIsStale()
         applyDefaultAutostartIfNeeded()
         configureTimer()
+        cloud.restoreLogin()
         refreshCodexQuota()
         refreshTokenRank()
         scheduleDeferredUpdateCheck()

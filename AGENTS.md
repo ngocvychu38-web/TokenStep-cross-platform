@@ -10,7 +10,7 @@ This section overrides the legacy local-first descriptions below. All production
 
 Rust `cycle` owns local collection, durable outbox, upload and exclusive process locking. macOS LaunchAgent `com.tokenstep.collector` uses the stable executable under Application Support/TokenStep/agent/bin. Testing interval is 60 seconds; future production interval is 600 seconds. Keychain authorization for the installed binary is required. Read `docs/CLOUD_MIGRATION_VERIFICATION.md` before changing scheduling, cloud presentation or validating deployment. Original Swift Codex accounting features are not all proven equivalent in Rust.
 
-Privacy: upload sanitized device/project/Agent/model metadata and daily/hourly token aggregates only. Raw logs, code, conversations, full paths and secrets stay local. Client login credentials remain process-memory only; relaunch requires login. Device upload credentials remain in OS credential storage.
+Privacy: upload sanitized device/project/Agent/model metadata and daily/hourly token aggregates only. Raw logs, code, conversations, full paths and secrets stay local. The Supabase login password is stored in the macOS Keychain per project/account; launch signs in automatically, and explicit sign-out removes the saved password. Access and refresh tokens remain process-memory only. Device upload credentials remain in OS credential storage.
 
 `codex/rust-cross-platform` introduces the new authoritative collection and cloud contract:
 
