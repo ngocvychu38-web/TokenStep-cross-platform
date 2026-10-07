@@ -567,12 +567,9 @@ struct ContributionWallView: View {
     }
 
     var body: some View {
-        let calendar = Calendar(identifier: .gregorian)
+        let calendar = ContributionWallCalendar.calendar
         let today = calendar.startOfDay(for: Date())
-        let rawStart = calendar.date(byAdding: .day, value: -(weeks * 7 - 1), to: today) ?? today
-        let weekday = calendar.component(.weekday, from: rawStart)
-        let mondayOffset = (weekday + 5) % 7
-        let start = calendar.date(byAdding: .day, value: -mondayOffset, to: rawStart) ?? rawStart
+        let start = ContributionWallCalendar.start(endingAt: today, weeks: weeks)
 
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top, spacing: 5) {
@@ -590,6 +587,8 @@ struct ContributionWallView: View {
                                             .stroke(Color.tokenGreenDark, lineWidth: 1.5)
                                     }
                                 }
+                                .help(day > today ? key : "\(key) · \(rowByDate[key]?.totalTokens ?? 0) Token")
+                                .accessibilityLabel(day > today ? key : "\(key) · \(rowByDate[key]?.totalTokens ?? 0) Token")
                         }
                     }
                 }
