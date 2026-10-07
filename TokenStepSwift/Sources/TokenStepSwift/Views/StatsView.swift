@@ -7,7 +7,7 @@ struct StatsView: View {
         VStack(spacing: 22) {
             HStack(spacing: 18) {
                 StatHeroMetric(label: L("累计 Token 消耗"), value: TokenStepFormat.tokens(appState.snapshot.totals.tokens), symbol: "figure.walk")
-                StatHeroMetric(label: L("消耗金额"), value: TokenStepFormat.money(appState.snapshot.totals.cost), symbol: "dollarsign.circle")
+                StatHeroMetric(label: L("消耗金额"), value: appState.usesCloudData ? "—" : TokenStepFormat.money(appState.snapshot.totals.cost), symbol: "dollarsign.circle")
                 StatHeroMetric(label: L("活跃天数"), value: localizedDays(appState.snapshot.totals.activeDays), symbol: "flame")
             }
 

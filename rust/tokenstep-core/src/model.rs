@@ -68,6 +68,15 @@ pub struct UsageBucketV1 {
     pub project_name: String,
     pub tokens: TokenCounts,
     pub record_count: u64,
+    #[serde(default)]
+    pub hourly_usage: Vec<HourlyUsage>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HourlyUsage {
+    pub hour: u32,
+    pub tokens: TokenCounts,
+    pub record_count: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

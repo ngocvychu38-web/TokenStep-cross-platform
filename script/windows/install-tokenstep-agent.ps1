@@ -1,6 +1,7 @@
 param(
     [Parameter(Mandatory = $true)] [string] $AgentExe,
-    [Parameter(Mandatory = $true)] [string] $IngestUrl
+    [Parameter(Mandatory = $true)] [string] $IngestUrl,
+    [ValidateRange(1, 1440)] [int] $IntervalMinutes = 1
 )
 
 $ErrorActionPreference = "Stop"
@@ -22,10 +23,10 @@ exit `$LASTEXITCODE
 Set-Content -Encoding UTF8 -Path $Runner -Value $Script
 
 $Action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$Runner`""
-$Trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 5)
+$Trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes)
 $Principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
 Register-ScheduledTask -TaskName "TokenStep Agent" -Action $Action -Trigger $Trigger -Principal $Principal -Force | Out-Null
 
 Write-Host "Installed: $InstalledExe"
-Write-Host "Scheduled task: TokenStep Agent (every 5 minutes)"
+Write-Host "Scheduled task: TokenStep Agent (every $IntervalMinutes minute(s))"
 Write-Host "Verify with: Get-ScheduledTask -TaskName 'TokenStep Agent'"

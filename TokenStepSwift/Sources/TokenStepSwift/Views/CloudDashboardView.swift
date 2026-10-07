@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct CloudDashboardView: View {
-    @StateObject private var store = SupabaseCloudStore()
+    @ObservedObject var store: SupabaseCloudStore
     @State private var selectedDevice = "全部"
     @State private var selectedAgent = "全部"
     @State private var selectedProject = "全部"
@@ -44,6 +44,7 @@ struct CloudDashboardView: View {
                 .disabled(store.isLoading || store.projectURL.isEmpty || store.publishableKey.isEmpty || store.email.isEmpty || store.password.isEmpty)
         }
         .padding(22)
+        .disabled(store.isLoading)
         .background(Color.tokenSurface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Color.black.opacity(0.06)))
     }

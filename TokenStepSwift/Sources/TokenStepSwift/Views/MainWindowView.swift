@@ -149,6 +149,8 @@ struct MainWindowView: View {
 
                 VStack(alignment: .leading, spacing: 26) {
                     pageHeader
+                    Text(L("所有用量页面读取 Supabase；采集与上传由独立后台代理完成。"))
+                        .font(.caption).foregroundStyle(.secondary)
                     if let error = appState.lastError {
                         ErrorBanner(message: error) {
                             appState.clearError()
@@ -190,7 +192,7 @@ struct MainWindowView: View {
                         Circle()
                             .fill(appState.isRefreshing ? Color.secondary.opacity(0.7) : Color.tokenGreen)
                             .frame(width: 7, height: 7)
-                        Text(appState.isRefreshing ? L("同步中") : L("已同步"))
+                        Text(appState.cloudStatusText)
                             .font(.callout.weight(.bold))
                     }
                     .padding(.horizontal, 13)
@@ -241,15 +243,19 @@ struct MainWindowView: View {
 
     @ViewBuilder
     private var detailView: some View {
+        if !appState.cloudHasLoaded && navigation.section != .privacy {
+            CloudDashboardView(store: appState.cloud)
+        } else {
         switch navigation.section {
         case .today:
             TodayView()
         case .history:
             HistoryView()
         case .cloud:
-            CloudDashboardView()
+            CloudDashboardView(store: appState.cloud)
         case .privacy:
             PrivacyView()
+        }
         }
     }
 }

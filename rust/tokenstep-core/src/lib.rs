@@ -7,7 +7,7 @@ mod sources;
 pub use aggregate::aggregate_facts;
 pub use collector::{Collector, SourceAdapter};
 pub use model::{
-    CollectionSnapshot, DeviceDescriptor, SourceDiagnostic, SourceState, TokenCounts,
+    CollectionSnapshot, DeviceDescriptor, HourlyUsage, SourceDiagnostic, SourceState, TokenCounts,
     UsageBucketV1, UsageFact,
 };
 pub use paths::PlatformPaths;

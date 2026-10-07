@@ -67,6 +67,8 @@ jobs:
         run: ./script/test_agent_sources.sh
       - name: Run device sync checks
         run: ./script/test_device_sync.sh
+      - name: Run cloud snapshot checks
+        run: ./script/test_cloud_snapshot.sh
       - name: Render settings cards check
         run: ./script/render_settings_cards.sh
       - name: Build TokenStep

@@ -21,6 +21,7 @@ try {
   await db.exec(migration.replace('create extension if not exists pgcrypto with schema extensions;', ''));
   const hardening = await readFile(new URL('../../supabase/migrations/20261006233553_cloud_security_hardening.sql', import.meta.url), 'utf8');
   await db.exec(hardening);
+  await db.exec(await readFile(new URL('../../supabase/migrations/20261006235908_cloud_hourly_usage.sql', import.meta.url), 'utf8'));
   const user = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
   const stranger = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
   const device = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
@@ -37,6 +38,11 @@ try {
   };
   const ingest = payload => db.query(`select public.ingest_device_snapshot($1, 'test-secret-hash', $2::jsonb) result`, [device,JSON.stringify(payload)]);
   await ingest(snapshot);
+  assert.deepEqual((await db.query('select hourly_usage from public.usage_dashboard')).rows[0].hourly_usage, []);
+  snapshot.buckets[0].hourly_usage = [{hour:9,record_count:1,tokens:snapshot.buckets[0].tokens}];
+  snapshot.generated_at = new Date(Date.now()+100).toISOString();
+  await ingest(snapshot);
+  assert.equal((await db.query('select hourly_usage from public.usage_dashboard')).rows[0].hourly_usage[0].tokens.total_tokens,18);
   assert.equal((await db.query('select sum(total_tokens)::int total from public.usage_buckets')).rows[0].total, 18);
   assert.equal((await ingest(snapshot)).rows[0].result.status, 'duplicate_or_older_snapshot');
   await db.exec('set role authenticated');

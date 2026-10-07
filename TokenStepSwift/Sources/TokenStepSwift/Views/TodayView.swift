@@ -140,7 +140,7 @@ struct TodayView: View {
                     HStack(spacing: 10) {
                         MetricPill(
                             label: L("消耗金额（估算）"),
-                            value: hasNoData ? "—" : TokenStepFormat.money(appState.today.cost)
+                            value: hasNoData || appState.usesCloudData ? "—" : TokenStepFormat.money(appState.today.cost)
                         )
                         .help(L("按 API 列表价估算，不代表订阅或实际账单。"))
                         MetricPill(label: L("本月均值"), value: TokenStepFormat.tokens(appState.monthAverage, compact: true))
@@ -154,7 +154,7 @@ struct TodayView: View {
 
     private var metricStrip: some View {
         HStack(spacing: 18) {
-            CompactMetricCard(label: L("累计 Token 消耗"), value: TokenStepFormat.tokens(appState.snapshot.totals.tokens), detail: L("所有本机记录"))
+            CompactMetricCard(label: L("累计 Token 消耗"), value: TokenStepFormat.tokens(appState.snapshot.totals.tokens), detail: L("Supabase 工作空间记录"))
             CompactMetricCard(label: L("活跃天数"), value: localizedDays(appState.snapshot.totals.activeDays), detail: L("有 AI 使用的日期"))
             CompactMetricCard(label: L("达标天数"), value: localizedDays(appState.goalDays), detail: L("达到每日目标"))
         }

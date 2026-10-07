@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
-use crate::{CONTRACT_VERSION, TokenCounts, UsageBucketV1, UsageFact};
+use crate::{CONTRACT_VERSION, HourlyUsage, TokenCounts, UsageBucketV1, UsageFact};
+use chrono::{DateTime, FixedOffset, Timelike};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct BucketKey {
@@ -16,7 +17,8 @@ pub fn aggregate_facts(
     facts: impl IntoIterator<Item = UsageFact>,
     timezone: &str,
 ) -> Vec<UsageBucketV1> {
-    let mut grouped: BTreeMap<BucketKey, (TokenCounts, u64)> = BTreeMap::new();
+    type Aggregate = (TokenCounts, u64, BTreeMap<u32, (TokenCounts, u64)>);
+    let mut grouped: BTreeMap<BucketKey, Aggregate> = BTreeMap::new();
     for fact in facts {
         if fact.tokens.is_empty() {
             continue;
@@ -32,11 +34,19 @@ pub fn aggregate_facts(
         let entry = grouped.entry(key).or_default();
         entry.0.add_assign(&fact.tokens);
         entry.1 += 1;
+        if let Ok(time) = DateTime::parse_from_rfc3339(&fact.occurred_at) {
+            let hour = time
+                .with_timezone(&FixedOffset::east_opt(8 * 3600).unwrap())
+                .hour();
+            let hourly = entry.2.entry(hour).or_default();
+            hourly.0.add_assign(&fact.tokens);
+            hourly.1 += 1;
+        }
     }
 
     grouped
         .into_iter()
-        .map(|(key, (tokens, record_count))| UsageBucketV1 {
+        .map(|(key, (tokens, record_count, hours))| UsageBucketV1 {
             schema_version: CONTRACT_VERSION,
             local_date: key.local_date,
             timezone: timezone.to_owned(),
@@ -47,6 +57,14 @@ pub fn aggregate_facts(
             project_name: key.project_name,
             tokens,
             record_count,
+            hourly_usage: hours
+                .into_iter()
+                .map(|(hour, (tokens, record_count))| HourlyUsage {
+                    hour,
+                    tokens,
+                    record_count,
+                })
+                .collect(),
         })
         .collect()
 }
@@ -82,5 +100,7 @@ mod tests {
         assert_eq!(buckets[0].tokens.total_tokens, 36);
         assert_eq!(buckets[0].record_count, 2);
         assert_eq!(buckets[0].project_name, "tokenhub");
+        assert_eq!(buckets[0].hourly_usage[0].hour, 9);
+        assert_eq!(buckets[0].hourly_usage[0].tokens.total_tokens, 36);
     }
 }

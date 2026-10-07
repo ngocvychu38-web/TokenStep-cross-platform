@@ -25,7 +25,7 @@ npm ci --ignore-scripts
 npm test
 ```
 
-当前仍保留原 Swift 本地统计页面，云端页面独立读取 Supabase。完整迁移还需完成：其他 Agent 的 Rust 适配器与真实样本对账、Codex 分叉/重放/子 Agent 口径与 Swift 的对账、Mac 后台安装与 Windows 实机验证。设备凭据使用 keyring 保存到 macOS Keychain / Windows Credential Manager，不使用明文文件回退。凭据库不可用时注册会明确报错；后台任务必须以注册时的同一用户身份运行。[keyring 官方说明](https://docs.rs/keyring/4.2.0/keyring/v1/index.html)。
+今日、历史、统计、Agent 工作强度、浮层与分享卡已统一读取 Supabase，经 CloudSnapshotAdapter 转换为共享展示模型；未登录不回退本地统计。小时 Token 汇总已加入采集与云端结构。金额、调用次数和完整缓存覆盖率暂不提供。Mac 后台安装及逐层验收见 [迁移验证](CLOUD_MIGRATION_VERIFICATION.md)。仍需其他 Agent 的真实样本对账、Codex 分叉/重放/子 Agent 口径对账与 Windows 实机验证。设备凭据使用 keyring 保存到 macOS Keychain / Windows Credential Manager，不使用明文文件回退。后台任务须以注册时同一用户身份运行，并授权安装后的程序读取凭据。
 
 `cycle` 先将快照写入 SQLite `outbox.sqlite3`，再按顺序上传。网络失败时未确认批次保留；服务端只接受较新快照。当前统一日期口径仅支持 Asia/Shanghai。
 

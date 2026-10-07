@@ -15,6 +15,7 @@ use tokenstep_core::{
 };
 use uuid::Uuid;
 mod outbox;
+mod scheduler;
 
 #[derive(Parser)]
 #[command(
@@ -29,6 +30,15 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Install/update the current-user macOS launchd task (60 seconds for testing, 600 for production).
+    InstallSchedule {
+        #[arg(long)]
+        ingest_url: String,
+        #[arg(long, default_value_t = 60)]
+        interval_seconds: u32,
+        #[arg(long)]
+        state_dir: Option<PathBuf>,
+    },
     /// Verify the native credential store using a disposable, non-production entry.
     VaultCheck,
     /// Persist a collection in the offline queue and upload pending batches in order.
@@ -107,6 +117,18 @@ struct EnrollmentResponse {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
+        Commands::InstallSchedule {
+            ingest_url,
+            interval_seconds,
+            state_dir,
+        } => {
+            validate_endpoint(&ingest_url)?;
+            scheduler::install(
+                &state_dir.unwrap_or_else(default_state_dir),
+                &ingest_url,
+                interval_seconds,
+            )?;
+        }
         Commands::VaultCheck => {
             let account = format!("verification-{}", Uuid::new_v4());
             let entry = keyring::Entry::new("TokenStep.VaultVerification", &account)?;
@@ -125,6 +147,22 @@ fn main() -> Result<()> {
         } => {
             validate_endpoint(&ingest_url)?;
             let directory = state_dir.unwrap_or_else(default_state_dir);
+            fs::create_dir_all(&directory)?;
+            let cycle_lock = fs::File::options()
+                .read(true)
+                .write(true)
+                .create(true)
+                .truncate(false)
+                .open(directory.join("cycle.lock"))?;
+            match cycle_lock.try_lock() {
+                Ok(()) => (),
+                Err(std::fs::TryLockError::WouldBlock) => {
+                    println!("cycle_skipped already_running");
+                    return Ok(());
+                }
+                Err(std::fs::TryLockError::Error(error)) => return Err(error.into()),
+            }
+            println!("cycle_started at={}", Utc::now().to_rfc3339());
             let snapshot = collect_snapshot(home, Some(directory.clone()), "Asia/Shanghai")?;
             verify_snapshot(&snapshot)?;
             let queue = outbox::Outbox::open(&directory)?;
@@ -158,7 +196,11 @@ fn main() -> Result<()> {
                 queue.acknowledge(id)?;
                 println!("batch_acknowledged id={id}");
             }
-            println!("cycle_ok");
+            write_json(
+                &directory.join("last-sync.json"),
+                &serde_json::json!({"last_succeeded_at": Utc::now().to_rfc3339(), "device_id": snapshot.device.device_id}),
+            )?;
+            println!("cycle_ok at={}", Utc::now().to_rfc3339());
         }
         Commands::Collect {
             home,
@@ -509,6 +551,7 @@ mod tests {
             sources: vec![],
         };
         let mut bucket = tokenstep_core::UsageBucketV1 {
+            hourly_usage: vec![],
             schema_version: 1,
             local_date: "2026-10-06".into(),
             timezone: "Asia/Shanghai".into(),

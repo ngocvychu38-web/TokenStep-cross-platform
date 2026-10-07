@@ -1,62 +1,15 @@
 import Foundation
 
-struct CloudUsageRow: Codable, Identifiable, Equatable {
-    var workspaceID: UUID
-    var localDate: String
-    var deviceID: UUID
-    var deviceName: String
-    var osFamily: String
-    var osVersion: String
-    var architecture: String
-    var agentKey: String
-    var agentName: String
-    var projectKey: String
-    var projectName: String
-    var model: String
-    var inputTokens: Int
-    var outputTokens: Int
-    var cacheReadTokens: Int
-    var cacheWriteTokens: Int
-    var reasoningTokens: Int
-    var totalTokens: Int
-    var recordCount: Int
-    var lastSeenAt: String?
-
-    var id: String {
-        "\(deviceID.uuidString):\(localDate):\(agentKey):\(model):\(projectKey)"
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case workspaceID = "workspace_id"
-        case localDate = "local_date"
-        case deviceID = "device_id"
-        case deviceName = "device_name"
-        case osFamily = "os_family"
-        case osVersion = "os_version"
-        case architecture
-        case agentKey = "agent_key"
-        case agentName = "agent_name"
-        case projectKey = "project_key"
-        case projectName = "project_name"
-        case model
-        case inputTokens = "input_tokens"
-        case outputTokens = "output_tokens"
-        case cacheReadTokens = "cache_read_tokens"
-        case cacheWriteTokens = "cache_write_tokens"
-        case reasoningTokens = "reasoning_tokens"
-        case totalTokens = "total_tokens"
-        case recordCount = "record_count"
-        case lastSeenAt = "last_seen_at"
-    }
-}
 
 private struct SupabaseAuthResponse: Decodable {
     var accessToken: String
     var refreshToken: String?
+    var expiresIn: Int?
 
     enum CodingKeys: String, CodingKey {
         case accessToken = "access_token"
         case refreshToken = "refresh_token"
+        case expiresIn = "expires_in"
     }
 }
 
@@ -70,8 +23,15 @@ final class SupabaseCloudStore: ObservableObject {
     @Published private(set) var isAuthenticated = false
     @Published private(set) var isLoading = false
     @Published var errorMessage: String?
+    @Published private(set) var hasLoaded = false
+    var onSnapshot: ((UsageSnapshot) -> Void)?
+    var onFailure: ((Error) -> Void)?
+    var onReset: (() -> Void)?
 
     private var accessToken: String?
+    private var refreshToken: String?
+    private var expiresAt = Date.distantPast
+    private var generation = UUID()
     private let defaults = UserDefaults.standard
 
     init() {
@@ -85,6 +45,7 @@ final class SupabaseCloudStore: ObservableObject {
         persistPublicConfiguration()
         isLoading = true
         errorMessage = nil
+        let currentGeneration = generation
         Task {
             defer { isLoading = false }
             do {
@@ -94,13 +55,18 @@ final class SupabaseCloudStore: ObservableObject {
                     body: ["email": email, "password": password],
                     authorization: nil
                 )
+                guard generation == currentGeneration else { return }
                 accessToken = auth.accessToken
+                refreshToken = auth.refreshToken
+                expiresAt = Date().addingTimeInterval(Double(auth.expiresIn ?? 3600) - 60)
                 password = ""
                 isAuthenticated = true
                 try await loadRows()
             } catch {
-                isAuthenticated = false
+                guard generation == currentGeneration else { return }
+                isAuthenticated = accessToken != nil
                 errorMessage = error.localizedDescription
+                onFailure?(error)
             }
         }
     }
@@ -109,25 +75,41 @@ final class SupabaseCloudStore: ObservableObject {
         guard !isLoading, accessToken != nil else { return }
         isLoading = true
         errorMessage = nil
+        let currentGeneration = generation
         Task {
             defer { isLoading = false }
             do {
+                if Date() >= expiresAt, let refreshToken {
+                    let auth: SupabaseAuthResponse = try await request(path: "/auth/v1/token?grant_type=refresh_token",
+                        method: "POST", body: ["refresh_token": refreshToken], authorization: nil)
+                    guard generation == currentGeneration else { return }
+                    accessToken = auth.accessToken
+                    self.refreshToken = auth.refreshToken
+                    expiresAt = Date().addingTimeInterval(Double(auth.expiresIn ?? 3600) - 60)
+                }
                 try await loadRows()
             } catch {
+                guard generation == currentGeneration else { return }
                 errorMessage = error.localizedDescription
+                onFailure?(error)
             }
         }
     }
 
     func signOut() {
+        generation = UUID()
         accessToken = nil
+        refreshToken = nil
         password = ""
         rows = []
         isAuthenticated = false
+        hasLoaded = false
+        onReset?()
     }
 
     private func loadRows() async throws {
         guard let accessToken else { throw CloudError.notAuthenticated }
+        let currentGeneration = generation
         var result: [CloudUsageRow] = []
         var offset = 0
         while true {
@@ -139,7 +121,20 @@ final class SupabaseCloudStore: ObservableObject {
             result.append(contentsOf: page)
             offset += page.count
         }
+        var statuses: [CloudSourceStatus] = []
+        offset = 0
+        while true {
+            let page: [CloudSourceStatus] = try await request(
+                path: "/rest/v1/source_sync_status?select=agent_key,state,files,records,last_succeeded_at&order=device_id,agent_key&limit=1000&offset=\(offset)",
+                method: "GET", body: Optional<[String: String]>.none, authorization: accessToken)
+            if page.isEmpty { break }
+            statuses.append(contentsOf: page)
+            offset += page.count
+        }
+        guard generation == currentGeneration else { return }
         rows = result
+        hasLoaded = true
+        onSnapshot?(CloudSnapshotAdapter.snapshot(rows: result, statuses: statuses))
     }
 
     private func persistPublicConfiguration() {
