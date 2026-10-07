@@ -26,6 +26,10 @@ impl PlatformPaths {
         vec![self.home.join(".claude").join("projects")]
     }
 
+    pub fn antigravity_root(&self) -> PathBuf {
+        self.home.join(".gemini").join("antigravity")
+    }
+
     pub fn teleagent_databases(&self) -> Vec<PathBuf> {
         let mut candidates = vec![
             self.home
