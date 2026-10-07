@@ -11,7 +11,9 @@ pub use model::{
     UsageBucketV1, UsageFact,
 };
 pub use paths::PlatformPaths;
-pub use sources::{ClaudeCodeSource, CodexSource, OpenCodeSource, TeleAgentSource};
+pub use sources::{
+    AntigravitySource, ClaudeCodeSource, CodexSource, OpenCodeSource, TeleAgentSource,
+};
 
 pub const CONTRACT_VERSION: u32 = 1;
 pub use sources::JsonAgentSource;

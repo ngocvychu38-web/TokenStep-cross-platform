@@ -10,8 +10,8 @@ use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use tokenstep_core::OpenCodeSource;
 use tokenstep_core::{
-    CONTRACT_VERSION, ClaudeCodeSource, CodexSource, CollectionSnapshot, Collector,
-    DeviceDescriptor, PlatformPaths, SourceAdapter, TeleAgentSource, aggregate_facts,
+    AntigravitySource, CONTRACT_VERSION, ClaudeCodeSource, CodexSource, CollectionSnapshot,
+    Collector, DeviceDescriptor, PlatformPaths, SourceAdapter, TeleAgentSource, aggregate_facts,
 };
 use uuid::Uuid;
 mod outbox;
@@ -383,7 +383,8 @@ fn collect_snapshot(
         Box::new(CodexSource::new(paths.clone())) as Box<dyn SourceAdapter>,
         Box::new(ClaudeCodeSource::new(paths.clone())) as Box<dyn SourceAdapter>,
         Box::new(TeleAgentSource::new(paths.clone())),
-        Box::new(OpenCodeSource::new(paths)),
+        Box::new(OpenCodeSource::new(paths.clone())),
+        Box::new(AntigravitySource::new(paths)),
     ]);
     let (facts, sources) = Collector::new(adapters).collect();
     let state = load_or_create_state(state_dir.unwrap_or_else(default_state_dir))?;
