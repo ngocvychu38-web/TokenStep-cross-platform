@@ -163,7 +163,7 @@ final class AppState: ObservableObject {
     }
 
     var shouldShowAgentWorkRank: Bool {
-        false // Public third-party ranking is not workspace cloud usage.
+        settings.agentWorkRankVisibility.shouldShow(hasLocalIdentity: agentWorkRankIdentity != nil)
     }
 
     func load() {
