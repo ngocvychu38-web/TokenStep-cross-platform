@@ -31,6 +31,7 @@ Get-Content "$env:LOCALAPPDATA\TokenStep\agent\logs\agent.log" -Tail 40
 Codex：%USERPROFILE%\.codex\sessions
 Claude Code：%USERPROFILE%\.claude\projects
 TeleAgent/OpenCode：按用户目录及 LOCALAPPDATA 候选路径发现数据库。
+Antigravity（实验）：%USERPROFILE%\.gemini\antigravity\conversations\*.db，只读其中的 token 用量、模型与时间字段，不读对话内容。
 仅上传设备、Agent、模型、脱敏项目名称及 Token/小时汇总，不上传聊天正文或代码。
 WSL 内的日志不自动发现。金额、调用次数等尚无权威云端字段。
 
