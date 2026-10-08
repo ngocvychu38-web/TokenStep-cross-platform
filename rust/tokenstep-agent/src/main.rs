@@ -384,7 +384,8 @@ fn collect_snapshot(
         Box::new(ClaudeCodeSource::new(paths.clone())) as Box<dyn SourceAdapter>,
         Box::new(TeleAgentSource::new(paths.clone())),
         Box::new(OpenCodeSource::new(paths.clone())),
-        Box::new(AntigravitySource::new(paths)),
+        Box::new(AntigravitySource::new(paths.clone())),
+        Box::new(AntigravitySource::ide(paths)),
     ]);
     let (facts, sources) = Collector::new(adapters).collect();
     let state = load_or_create_state(state_dir.unwrap_or_else(default_state_dir))?;

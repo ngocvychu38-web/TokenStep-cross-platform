@@ -1,4 +1,5 @@
-//! Antigravity（实验）：只读 `~/.gemini/antigravity/conversations/*.db`。
+//! Antigravity / Antigravity IDE（实验）：只读 `~/.gemini/antigravity/conversations/*.db`
+//! 与 `~/.gemini/antigravity-ide/conversations/*.db`，两者存储结构相同，按产品分别统计。
 //!
 //! Antigravity 没有公开格式，字段编号来自对本机样本的结构探测（只看数值，不读正文）：
 //! - `gen_metadata.data` 每行是一次模型调用：`1.4` 为用量（2 未命中缓存输入、5 缓存读取、
@@ -20,25 +21,42 @@ use crate::{PlatformPaths, SourceAdapter, SourceDiagnostic, SourceState, TokenCo
 use super::support::{project_key, project_name};
 
 pub struct AntigravitySource {
-    paths: PlatformPaths,
+    root: PathBuf,
+    key: &'static str,
+    name: &'static str,
 }
 
 impl AntigravitySource {
     pub fn new(paths: PlatformPaths) -> Self {
-        Self { paths }
+        Self {
+            root: paths.antigravity_root(),
+            key: "antigravity",
+            name: "Antigravity",
+        }
+    }
+
+    pub fn ide(paths: PlatformPaths) -> Self {
+        Self {
+            root: paths.antigravity_ide_root(),
+            key: "antigravity_ide",
+            name: "Antigravity IDE",
+        }
     }
 }
 
 impl SourceAdapter for AntigravitySource {
     fn key(&self) -> &'static str {
-        "antigravity"
+        self.key
     }
 
     fn collect(&self) -> (Vec<UsageFact>, SourceDiagnostic) {
-        let root = self.paths.antigravity_root();
+        let root = &self.root;
         let databases = conversation_databases(&root.join("conversations"));
         if databases.is_empty() {
-            return (vec![], diagnostic(SourceState::Missing, 0, 0, None));
+            return (
+                vec![],
+                diagnostic(self.key, SourceState::Missing, 0, 0, None),
+            );
         }
         let workspaces = workspace_paths(&root.join("conversation_summaries.db"));
         let mut facts = Vec::new();
@@ -51,7 +69,7 @@ impl SourceAdapter for AntigravitySource {
                 .unwrap_or_default()
                 .to_owned();
             let workspace = workspaces.get(&conversation_id).map(String::as_str);
-            match query_conversation(database, &conversation_id, workspace) {
+            match query_conversation(self, database, &conversation_id, workspace) {
                 Ok((mut rows, skipped_rows)) => {
                     facts.append(&mut rows);
                     skipped += skipped_rows;
@@ -75,18 +93,19 @@ impl SourceAdapter for AntigravitySource {
         } else {
             None
         };
-        (facts, diagnostic(state, files, records, error))
+        (facts, diagnostic(self.key, state, files, records, error))
     }
 }
 
 fn diagnostic(
+    key: &str,
     state: SourceState,
     files: u64,
     records: u64,
     error: Option<&str>,
 ) -> SourceDiagnostic {
     SourceDiagnostic {
-        agent_key: "antigravity".into(),
+        agent_key: key.into(),
         state,
         files,
         records,
@@ -169,6 +188,7 @@ fn percent_decode(value: &str) -> String {
 }
 
 fn query_conversation(
+    source: &AntigravitySource,
     path: &Path,
     conversation_id: &str,
     workspace: Option<&str>,
@@ -210,12 +230,12 @@ fn query_conversation(
                 .with_timezone(&shanghai)
                 .format("%Y-%m-%d")
                 .to_string(),
-            agent_key: "antigravity".into(),
-            agent_name: "Antigravity".into(),
+            agent_key: source.key.into(),
+            agent_name: source.name.into(),
             model: generation.model,
             project_key: project_key(workspace),
             project_name: project_name(workspace),
-            source_event_id: format!("antigravity:{conversation_id}:{call_id}"),
+            source_event_id: format!("{}:{conversation_id}:{call_id}", source.key),
             tokens: generation.tokens,
         });
     }
@@ -395,8 +415,8 @@ mod tests {
         bytes(1, &body)
     }
 
-    fn fixture(dir: &Path) -> PathBuf {
-        let root = dir.join(".gemini/antigravity");
+    fn fixture(dir: &Path, product: &str) -> PathBuf {
+        let root = dir.join(".gemini").join(product);
         std::fs::create_dir_all(root.join("conversations")).unwrap();
         let db_path = root.join("conversations/conv-1.db");
         let db = Connection::open(&db_path).unwrap();
@@ -441,7 +461,7 @@ mod tests {
     #[test]
     fn maps_usage_model_time_and_workspace_without_guessing() {
         let dir = TempDir::new().unwrap();
-        fixture(dir.path());
+        fixture(dir.path(), "antigravity");
         let source = AntigravitySource::new(PlatformPaths::new(dir.path(), None));
         let (facts, diag) = source.collect();
 
@@ -466,6 +486,24 @@ mod tests {
         assert_eq!(second.tokens.cache_read_tokens, 12000);
         assert_eq!(second.tokens.output_tokens, 200);
         assert_eq!(second.tokens.total_tokens, 13700);
+    }
+
+    #[test]
+    fn ide_reads_its_own_directory_under_a_separate_agent() {
+        let dir = TempDir::new().unwrap();
+        fixture(dir.path(), "antigravity-ide");
+        let paths = PlatformPaths::new(dir.path(), None);
+
+        let (facts, diag) = AntigravitySource::ide(paths.clone()).collect();
+        assert_eq!(diag.agent_key, "antigravity_ide");
+        assert_eq!(diag.state, SourceState::Ok);
+        assert_eq!(facts.len(), 2);
+        assert_eq!(facts[0].agent_name, "Antigravity IDE");
+        assert_eq!(facts[0].source_event_id, "antigravity_ide:conv-1:bot-0");
+
+        let (facts, diag) = AntigravitySource::new(paths).collect();
+        assert!(facts.is_empty());
+        assert_eq!(diag.state, SourceState::Missing);
     }
 
     #[test]
