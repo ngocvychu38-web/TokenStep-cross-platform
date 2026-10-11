@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct CloudDashboardView: View {
+    @EnvironmentObject private var appState: AppState
     @ObservedObject var store: SupabaseCloudStore
     @State private var selectedDevice = "全部"
     @State private var selectedAgent = "全部"
@@ -55,7 +56,7 @@ struct CloudDashboardView: View {
                 Label(L("Supabase 已连接"), systemImage: "checkmark.icloud.fill")
                     .font(.headline.weight(.bold)).foregroundStyle(Color.tokenGreenDark)
                 Spacer()
-                Button(L("刷新")) { store.refresh() }.disabled(store.isLoading)
+                Button(appState.isRefreshing ? L("刷新中") : L("刷新")) { appState.refresh() }.disabled(appState.isRefreshing)
                 Button(L("退出")) { store.signOut() }
             }
             filters

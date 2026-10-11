@@ -12,12 +12,13 @@ final class AppState: ObservableObject {
     @Published private(set) var cloudHasLoaded = false
     var cloudStatusText: String {
         if !cloud.isAuthenticated { return L("请先登录云端") }
-        if cloud.isLoading { return L("同步中") }
+        if isRefreshing { return L("同步中") }
         return cloudHasLoaded ? L("Supabase 已连接") : L("等待下一次同步")
     }
     @Published private(set) var snapshot: UsageSnapshot = .empty
     @Published private(set) var settings: TokenStepSettings = .defaults
-    var isRefreshing: Bool { cloud.isLoading }
+    @Published private(set) var isManualRefreshing = false
+    var isRefreshing: Bool { cloud.isLoading || isManualRefreshing }
     @Published private(set) var autostartEnabled = false
     @Published private(set) var isCheckingForUpdates = false
     @Published private(set) var isRefreshingCodexQuota = false
@@ -209,8 +210,42 @@ final class AppState: ObservableObject {
     }
 
     func refresh(forceCollection: Bool = true) {
-        guard cloud.isAuthenticated else { return }
-        cloud.refresh()
+        guard !isManualRefreshing else { return }
+        if !forceCollection {
+            if cloud.isAuthenticated { cloud.refresh() }
+            return
+        }
+        refreshTokenRank(force: true)
+        refreshCodexQuota(force: true)
+        isManualRefreshing = true
+        lastError = nil
+        let projectURL = cloud.projectURL
+        LifecycleLogger.log("manual_refresh_started")
+        Task {
+            defer { isManualRefreshing = false }
+            do {
+                if !cloud.isAuthenticated { cloud.restoreLogin() }
+                while cloud.isLoading { try await Task.sleep(nanoseconds: 100_000_000) }
+                guard cloud.isAuthenticated else {
+                    lastError = cloud.errorMessage ?? L("请先登录云端，再刷新本机用量")
+                    LifecycleLogger.log("manual_refresh_failed stage=login")
+                    return
+                }
+                try await ManualUsageRefreshService.collectAndUpload(projectURL: projectURL)
+                // A timer read may already be in flight; wait before starting the post-upload read.
+                while cloud.isLoading { try await Task.sleep(nanoseconds: 100_000_000) }
+                guard cloud.isAuthenticated, cloud.projectURL == projectURL else { return }
+                cloud.refresh()
+                while cloud.isLoading { try await Task.sleep(nanoseconds: 100_000_000) }
+                if let error = cloud.errorMessage { lastError = error }
+                LifecycleLogger.log("manual_refresh_finished success=\(cloud.errorMessage == nil)")
+            } catch {
+                lastError = error.localizedDescription
+                freshnessState.collection = freshnessState.collection.failing(kind: FreshnessPolicy.classify(error: error), at: Date())
+                recomputeFreshness()
+                LifecycleLogger.log("manual_refresh_failed")
+            }
+        }
     }
 
     private func acceptCloudSnapshot(_ remote: UsageSnapshot) {

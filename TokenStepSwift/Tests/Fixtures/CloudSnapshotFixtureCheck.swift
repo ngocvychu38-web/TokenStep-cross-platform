@@ -122,6 +122,36 @@ struct CloudSnapshotFixtureCheck {
         }
         print("cloud_snapshot_ok: multi-device, dedup, daily, model, project, TeleAgent hourly, legacy compatibility")
         print("cloud_read_logs_ok: auth, HTTP, apply, rejection, sign-out, credential redaction")
+        let manualState = FileManager.default.temporaryDirectory.appendingPathComponent("tokenstep-manual-test-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: manualState, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: manualState) }
+        let fakeAgent = manualState.appendingPathComponent("fake-agent")
+        let agentScript = """
+        #!/bin/sh
+        if [ -f "$3/fail" ]; then exit 9; fi
+        if [ -f "$3/never" ]; then echo 'cycle_skipped already_running'; exit 0; fi
+        if [ ! -f "$3/started" ]; then touch "$3/started"; echo 'cycle_skipped already_running'; exit 0; fi
+        echo 'cycle_ok at=fixture'
+        """
+        try Data(agentScript.utf8).write(to: fakeAgent)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: fakeAgent.path)
+        try ManualUsageRefreshService.run(executable: fakeAgent, state: manualState, endpoint: "https://fixture.invalid/upload", timeout: 5)
+        try Data().write(to: manualState.appendingPathComponent("fail"))
+        do {
+            try ManualUsageRefreshService.run(executable: fakeAgent, state: manualState, endpoint: "https://fixture.invalid/upload")
+            preconditionFailure("failed agent must not be reported as refreshed")
+        } catch ManualUsageRefreshService.RefreshError.agentFailed {}
+        try FileManager.default.removeItem(at: manualState.appendingPathComponent("fail"))
+        try Data().write(to: manualState.appendingPathComponent("never"))
+        do {
+            try ManualUsageRefreshService.run(executable: fakeAgent, state: manualState, endpoint: "https://fixture.invalid/upload", timeout: 0.2)
+            preconditionFailure("busy agent must time out")
+        } catch ManualUsageRefreshService.RefreshError.timedOut {}
+        print("manual_refresh_ok: waits for busy collector, requires completion, rejects failure, bounded timeout")
+        if ProcessInfo.processInfo.environment["TOKENSTEP_VERIFY_LIVE_REFRESH"] == "1" {
+            try await ManualUsageRefreshService.collectAndUpload(projectURL: "https://hdizeqfyrdfbqohrnuzt.supabase.co")
+            print("live_manual_refresh_ok: installed agent completed a new collection and acknowledged upload")
+        }
     }
 }
 

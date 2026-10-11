@@ -53,6 +53,7 @@ swiftc \
   "$SWIFT_DIR/Sources/TokenStepSwift/Models/CloudUsageRow.swift" \
   "$SWIFT_DIR/Sources/TokenStepSwift/Services/CloudSnapshotAdapter.swift" \
   "$SWIFT_DIR/Sources/TokenStepSwift/Services/SupabaseCloudService.swift" \
+  "$SWIFT_DIR/Sources/TokenStepSwift/Services/ManualUsageRefreshService.swift" \
   "$SWIFT_DIR/Tests/Fixtures/CloudSnapshotFixtureCheck.swift" \
   -o "$EXECUTABLE"
 
