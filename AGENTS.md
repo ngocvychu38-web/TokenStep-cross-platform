@@ -6,6 +6,8 @@ This file is the persistent project briefing for Codex and other coding agents. 
 
 ### Current authority (2026-10-07)
 
+For whole-project architecture, installation, deployment and package selection, start with `docs/PROJECT_HANDOVER.md` (updated 2026-10-11). Manual refresh runs the installed Rust collection/upload cycle before reloading the shared Supabase snapshot.
+
 This section overrides the legacy local-first descriptions below. All production usage pages, popover and share cards now consume one authenticated Supabase store through `CloudSnapshotAdapter` and `AppState`; there is no local usage fallback. Legacy Swift collection is retained for reference/parity fixtures only. Cloud Token buckets use the shared legacy TokenCostEstimator for API list-price cost estimates; these are not actual bills. Fields without authoritative equivalents (tool-call counts, complete cache coverage) render unavailable.
 
 Rust `cycle` owns local collection, durable outbox, upload and exclusive process locking. macOS LaunchAgent `com.tokenstep.collector` uses the stable executable under Application Support/TokenStep/agent/bin. Testing interval is 60 seconds; future production interval is 600 seconds. Keychain authorization for the installed binary is required. Read `docs/CLOUD_MIGRATION_VERIFICATION.md` before changing scheduling, cloud presentation or validating deployment. Original Swift Codex accounting features are not all proven equivalent in Rust.
