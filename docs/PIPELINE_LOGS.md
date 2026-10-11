@@ -43,3 +43,7 @@ from public.usage_dashboard;
 此前可找到 07:55:23–24 前端 GET usage_dashboard 的 HTTP 200，但这属于旧版本记录；当前页面读数必须在日志增强版登录后重新确认。Edge v3 日志已部署并用未授权请求验证 401 与请求 UUID 日志；新版代理采集成功，首次读取钥匙串等待新二进制授权。安装新版前端会结束进程内会话，用户需重新登录。
 
 08:25:43 已完成一轮日志对账：本机 upload_response HTTP 200、accepted=362；云端 ingest_ok/ingest_response 同一请求编号 b8e3e2e1-b40d-415f-b732-efab603e33a1，数据库 created_at=00:25:43.309204Z。08:26:16 日志增强版前端已启动，cloud_store_initialized authenticated=false，等待正式账号重新登录。Rust 测试、clippy、云端 SQL fixture、Swift 云端转换/读取日志 fixture 和 Intel 完整构建通过；完整 SwiftPM 测试仍受本机缺少 XCTest 限制。
+
+08:33:58.724 正式账号记录 `cloud_sign_in_ok`。截至 08:46:19.659，前端连续刷新成功，最新分页 REST 请求均为 HTTP 200，`cloud_snapshot_applied` 为 362 行、2,707,677,955 Token、1 台设备、11 个来源状态（其中 3 个来源有用量）；未发现 `cloud_refresh_failed`。这一读数与本机 08:46:04.212944 采集快照一致，已安装代理只读 `verify` 通过，全部 362 桶具有小时汇总，小时 Token 合计与快照合计一致。
+
+最近十轮后台成功记录从 08:33:29.347 至 08:46:06.306，批次 12–21 均 `accepted=362 duplicate=false`；相邻成功完成间隔为 72.0–110.5 秒。最新上传请求编号为 `4a1bd387-acf0-4c0a-be84-9d628448d0ac`，HTTP 200；本地待确认批次为 0，last-sync 成功时间为 08:46:06.264，stderr 日志为空。此续验未重查该请求的服务端日志或 SQL；最新云端内容由正式账号前端读取记录佐证。钥匙串授权和实际登录不再待办；各页可视交互、退出登录清空、断网展示及 Windows 实机仍待验收。

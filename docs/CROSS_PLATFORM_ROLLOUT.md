@@ -15,7 +15,7 @@
 
 ## 验证状态与仍待完成的工作
 
-已在 Intel Mac 验证 Rust 测试、真实日志采集及 SwiftUI 编译。PGlite（Postgres WASM）测试实际执行 migration 与 SQL 函数，验证注册、入库、重复上传、RLS、来源失败保留、事务回滚和设备撤销。PGlite 中仅为测试替换 pgcrypto，生产 migration 保留真实 pgcrypto。2026-10-07 已正式部署 Supabase 与两个 Edge Functions，完成真实注册、上传、重复上传及数据库权限验证；详情见 [云端部署报告](SUPABASE_DEPLOYMENT.md)。正式用户 Auth 登录和 SwiftUI 登录读数仍待用户设置账号后验证。
+已在 Intel Mac 验证 Rust 测试、真实日志采集及 SwiftUI 编译。PGlite（Postgres WASM）测试实际执行 migration 与 SQL 函数，验证注册、入库、重复上传、RLS、来源失败保留、事务回滚和设备撤销。PGlite 中仅为测试替换 pgcrypto，生产 migration 保留真实 pgcrypto。2026-10-07 已正式部署 Supabase 与两个 Edge Functions，完成真实注册、上传、重复上传及数据库权限验证；详情见 [云端部署报告](SUPABASE_DEPLOYMENT.md)。北京时间 08:33:58 正式用户 Auth 登录成功，随后 SwiftUI 连续读取并应用云端快照；截至 08:46:19，362 桶、2,707,677,955 Token 与本机快照一致。逐页可视交互、退出登录及断网展示验收仍待完成。
 
 数据库模块独立验证：
 
@@ -166,6 +166,14 @@ TOKENSTEP_ARCH=x86_64 ./script/build_swiftui_and_run.sh
 密码和 access token 只驻留进程内；Project URL、Publishable Key 和邮箱保存在 UserDefaults。
 
 ## 门禁 6：Windows 机器
+
+2026-10-07 已生成 `TokenStep-Agent-0.1.0-windows-x64.zip`（后台采集器，无 Windows 图形界面）。[Windows CI 构建与安装包下载](https://github.com/ngocvychu38-web/TokenStep-cross-platform/actions/runs/37554335969)，安装包 artifact 为 `TokenStep-Agent-0.1.0-windows-x64-installer`。私有仓库下载需要登录有访问权限的 GitHub 账号。
+
+将安装 ZIP 完整解压，双击 `install.cmd`，输入所属工作空间的一次性设备注册码。安装器检查文件校验和及 Windows Credential Manager 后，注册设备并安装当前用户的计划任务，默认一分钟测试间隔；数据及日志位于 `%LOCALAPPDATA%\TokenStep\agent`。双击 `uninstall.cmd` 停止并移除任务，保留数据和设备凭据。完整说明见包内 `README-install.txt`。
+
+该构建的 Windows Rust 测试、clippy、Release 编译、包校验、EXE 启动、原生凭据存取、计划任务注册及卸载 fixture 全部通过。EXE 静态链接运行库，导入 DLL 仅含 Windows 系统库；安装 ZIP SHA-256 为 `1d57f41aaba0afbe0d68df46ffdf02c5df89a424593c63b103463ec3ddede64f`。CI 采用隔离目录及测试端点，不执行正式账号注册上传；真实 Windows Agent 日志和云端端到端对账仍待实机验证。
+
+代码继续按一个仓库的 Rust workspace 管理：共享采集放在 `rust/tokenstep-core`，后台程序放在 `rust/tokenstep-agent`，Windows 安装和打包放在 `script/windows`，Mac 界面放在 `TokenStepSwift`。系统差异通过模块和条件编译隔离；开发分支完成后合并，不以长期平台分支或子仓库维护重复采集逻辑。
 
 在 GitHub Actions 下载 Windows Release 构建，或在 Windows 上执行：
 
