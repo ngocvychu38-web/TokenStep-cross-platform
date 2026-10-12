@@ -6,6 +6,10 @@ struct PopoverFooterView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if let error = appState.lastError {
+                Text(error).font(.caption).foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             HStack(spacing: 8) {
                 Label(L("本地统计"), systemImage: "checkmark.shield.fill")
                     .font(.caption.weight(.bold))
@@ -31,7 +35,7 @@ struct PopoverFooterView: View {
                 .buttonStyle(.plain)
                 .help(L("打开仪表盘"))
 
-                PopoverActionButton(title: L("刷新"), symbol: "arrow.clockwise") {
+                PopoverActionButton(title: appState.isRefreshing ? L("刷新中") : L("刷新"), symbol: "arrow.clockwise") {
                     appState.refresh()
                 }
                 .disabled(appState.isRefreshing)

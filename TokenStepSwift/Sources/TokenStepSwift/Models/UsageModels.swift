@@ -1032,3 +1032,72 @@ struct TokenStepSettings: Codable {
         try container.encodeIfPresent(skippedUpdateVersion, forKey: .skippedUpdateVersion)
     }
 }
+
+/// Shared legacy API list-price estimates for local and cloud presentation.
+enum TokenCostEstimator {
+    struct Counts {
+        var inputTokens: Int
+        var outputTokens: Int
+        var cacheCreationInputTokens: Int
+        var cacheReadInputTokens: Int
+        var totalTokens: Int
+    }
+    static func estimate(usage: Counts, tool: String, model: String) -> Double {
+        let lower = model.lowercased()
+        if tool == "Codex", lower.contains("gpt-5.5") {
+            return openAICostByParts(usage: usage, input: 5, cachedInput: 0.5, output: 30)
+        }
+        if tool == "Codex", lower.contains("gpt-5.4") {
+            return openAICostByParts(usage: usage, input: 2.5, cachedInput: 0.25, output: 15)
+        }
+        if lower.contains("opus") {
+            return costByParts(usage: usage, input: 5, output: 25, cacheCreation: 6.25, cacheRead: 0.5)
+        }
+        if lower.contains("sonnet") {
+            return costByParts(usage: usage, input: 3, output: 15, cacheCreation: 3.75, cacheRead: 0.3)
+        }
+        if tool == "Claude Code" {
+            return Double(usage.totalTokens) / 1_000_000 * 3
+        }
+        return Double(usage.totalTokens) / 1_000_000
+    }
+
+    private static func openAICostByParts(
+        usage: Counts,
+        input: Double,
+        cachedInput: Double,
+        output: Double
+    ) -> Double {
+        let cached = max(0, usage.cacheReadInputTokens)
+        let cacheCreation = max(0, usage.cacheCreationInputTokens)
+        let uncachedInput = max(0, usage.inputTokens - cached - cacheCreation)
+        if uncachedInput == 0,
+           cached == 0,
+           cacheCreation == 0,
+           usage.outputTokens == 0,
+           usage.totalTokens > 0 {
+            return Double(usage.totalTokens) / 1_000_000 * input
+        }
+        return Double(uncachedInput + cacheCreation) / 1_000_000 * input
+            + Double(cached) / 1_000_000 * cachedInput
+            + Double(usage.outputTokens) / 1_000_000 * output
+    }
+
+    private static func costByParts(
+        usage: Counts,
+        input: Double,
+        output: Double,
+        cacheCreation: Double,
+        cacheRead: Double
+    ) -> Double {
+        let uncachedInput = max(
+            0,
+            usage.inputTokens - usage.cacheCreationInputTokens - usage.cacheReadInputTokens
+        )
+        return Double(uncachedInput) / 1_000_000 * input
+            + Double(usage.outputTokens) / 1_000_000 * output
+            + Double(usage.cacheCreationInputTokens) / 1_000_000 * cacheCreation
+            + Double(usage.cacheReadInputTokens) / 1_000_000 * cacheRead
+    }
+
+}

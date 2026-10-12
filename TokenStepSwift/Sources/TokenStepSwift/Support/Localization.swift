@@ -30,6 +30,8 @@ enum TokenStepLocalization {
 
     private static let translations: [TokenStepLanguage: [String: String]] = [
         .en: [
+            "采集成功，上传失败；数据已保留，请检查网络后重试": "Collected successfully; upload failed. Data is retained. Check the network and retry.",
+            "采集成功，无法读取设备凭据；请检查钥匙串授权": "Collected successfully; device credentials are unavailable. Check Keychain authorization.",
             "自动": "Auto",
             "刘海左侧": "Left of notch",
             "刘海右侧": "Right of notch",
@@ -97,7 +99,7 @@ enum TokenStepLocalization {
             "今日模型": "Today by Model",
             "累计总量分布": "Total distribution",
             "主力模型": "Top Models",
-            "本月均值": "Monthly Avg",
+            "近 30 天均值": "30-Day Average",
             "活跃天数": "Active Days",
             "达标天数": "Goal Days",
             "有 AI 使用的日期": "Days with AI usage",
@@ -174,6 +176,8 @@ enum TokenStepLocalization {
             "已完成": "Completed",
             "仅供参考": "Reference only",
             "今日来源": "Today Sources",
+            "历史总 Token": "All-time Tokens",
+            "本月总 Token": "This Month Tokens",
             "昨日来源": "Yesterday Sources",
             "今日 Token": "Today Token",
             "按 Token 消耗排序": "Sorted by token usage",
@@ -452,6 +456,8 @@ enum TokenStepLocalization {
             "请手动把 DMG 里的 TokenStep 拖到 Applications。": "Please drag TokenStep from the DMG into Applications manually.",
         ],
         .zhHant: [
+            "采集成功，上传失败；数据已保留，请检查网络后重试": "採集成功，上傳失敗；資料已保留，請檢查網路後重試",
+            "采集成功，无法读取设备凭据；请检查钥匙串授权": "採集成功，無法讀取裝置憑證；請檢查鑰匙圈授權",
             "简体中文": "簡體中文",
             "自动": "自動",
             "刘海左侧": "瀏海左側",
@@ -519,7 +525,7 @@ enum TokenStepLocalization {
             "今日模型": "今日模型",
             "累计总量分布": "累計總量分布",
             "主力模型": "主力模型",
-            "本月均值": "本月均值",
+            "近 30 天均值": "近 30 天均值",
             "活跃天数": "活躍天數",
             "达标天数": "達標天數",
             "有 AI 使用的日期": "有 AI 使用的日期",
@@ -596,6 +602,8 @@ enum TokenStepLocalization {
             "已完成": "已完成",
             "仅供参考": "僅供參考",
             "今日来源": "今日來源",
+            "历史总 Token": "歷史總 Token",
+            "本月总 Token": "本月總 Token",
             "昨日来源": "昨日來源",
             "今日 Token": "今日 Token",
             "按 Token 消耗排序": "按 Token 消耗排序",

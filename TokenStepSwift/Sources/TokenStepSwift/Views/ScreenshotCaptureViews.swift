@@ -53,6 +53,16 @@ struct DashboardScreenshotView: View {
             TodayView()
         case .history:
             HistoryView(historyLimit: 30)
+        case .cloud:
+            VStack(alignment: .leading, spacing: 12) {
+                Image(systemName: "cloud.fill")
+                    .font(.system(size: 36))
+                    .foregroundStyle(Color.tokenGreen)
+                Text(L("云端数据请在主窗口登录后查看"))
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(Color.tokenInk)
+            }
+            .frame(maxWidth: .infinity, minHeight: 280, alignment: .leading)
         case .privacy:
             PrivacyView()
         }

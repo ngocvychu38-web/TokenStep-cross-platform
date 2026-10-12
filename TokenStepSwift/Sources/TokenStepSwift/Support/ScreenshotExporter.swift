@@ -73,8 +73,11 @@ enum ScreenshotExporter {
         return "TokenStep-\(prefix)-\(formatter.string(from: Date())).png"
     }
 
-    private static func render<V: View>(_ view: V) throws -> NSImage {
-        let renderer = ImageRenderer(content: view)
+    static func render<V: View>(_ view: V) throws -> NSImage {
+        let renderer = ImageRenderer(content: view
+            .environment(\.isScreenshotRendering, true)
+            .toggleStyle(ScreenshotToggleStyle())
+            .fixedSize(horizontal: false, vertical: true))
         renderer.scale = NSScreen.main?.backingScaleFactor ?? 2
         guard let image = renderer.nsImage else {
             throw ScreenshotExportError.renderFailed
@@ -82,7 +85,7 @@ enum ScreenshotExporter {
         return image
     }
 
-    private static func pngData(from image: NSImage) throws -> Data {
+    static func pngData(from image: NSImage) throws -> Data {
         guard
             let tiff = image.tiffRepresentation,
             let bitmap = NSBitmapImageRep(data: tiff),
@@ -93,7 +96,7 @@ enum ScreenshotExporter {
         return data
     }
 
-    private static func jpgData(from image: NSImage) throws -> Data {
+    static func jpgData(from image: NSImage) throws -> Data {
         guard
             let tiff = image.tiffRepresentation,
             let bitmap = NSBitmapImageRep(data: tiff),
@@ -123,5 +126,29 @@ enum ScreenshotExporter {
             index += 1
         }
         return candidate
+    }
+}
+
+/// ImageRenderer cannot draw AppKit-backed switches; exports use their static state.
+struct ScreenshotToggleStyle: ToggleStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack {
+            configuration.label
+            Spacer(minLength: 8)
+            Capsule()
+                .fill(configuration.isOn ? Color.tokenGreen : Color.gray.opacity(0.28))
+                .frame(width: 32, height: 18)
+                .overlay(alignment: configuration.isOn ? .trailing : .leading) {
+                    Circle().fill(Color.white).frame(width: 14, height: 14).padding(2)
+                }
+        }
+    }
+}
+
+struct ScreenshotSwitchStyleModifier: ViewModifier {
+    @Environment(\.isScreenshotRendering) private var isScreenshotRendering
+    @ViewBuilder func body(content: Content) -> some View {
+        if isScreenshotRendering { content.toggleStyle(ScreenshotToggleStyle()) }
+        else { content.toggleStyle(.switch) }
     }
 }

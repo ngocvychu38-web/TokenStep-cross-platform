@@ -91,12 +91,24 @@ struct SettingsRefreshCard: View {
 
 struct SettingsTokenRankCard: View {
     @EnvironmentObject private var appState: AppState
+    @Environment(\.isScreenshotRendering) private var isScreenshotRendering
 
     var body: some View {
         SettingsCard(title: L("Agent 消耗榜"), symbol: "list.number", height: 282) {
             VStack(alignment: .leading, spacing: 13) {
                 // 注意：segmented Picker 必须用非空标题且不用 labelsHidden——
                 // macOS 15 下空标题/labelsHidden 会连分段文字一起隐藏（渲染实测）。
+                if isScreenshotRendering {
+                    HStack {
+                        Text(L("榜单可见性"))
+                        Spacer()
+                        Text(L(appState.settings.agentWorkRankVisibility == .automatic ? "自动" : appState.settings.agentWorkRankVisibility == .visible ? "显示" : "隐藏"))
+                            .fontWeight(.bold)
+                    }
+                    .font(.callout)
+                    .padding(8)
+                    .background(Color.tokenSurface, in: RoundedRectangle(cornerRadius: 8))
+                } else {
                 Picker(L("榜单可见性"), selection: Binding(
                     get: { appState.settings.agentWorkRankVisibility },
                     set: { appState.setAgentWorkRankVisibility($0) }
@@ -106,6 +118,7 @@ struct SettingsTokenRankCard: View {
                     Text(L("隐藏")).tag(AgentWorkRankVisibility.hidden)
                 }
                 .pickerStyle(.segmented)
+                }
 
                 StatusLine(
                     symbol: statusSymbol,

@@ -5,12 +5,12 @@ struct PrivacyView: View {
         VStack(spacing: 22) {
             TokenCard {
                 VStack(alignment: .leading, spacing: 20) {
-                    Text(L("本地优先"))
+                    Text(L("本机采集，云端汇总"))
                         .font(.title3.weight(.heavy))
                         .foregroundStyle(Color.tokenInk)
-                    PrivacyRow(index: 1, title: L("只统计 token 数量"), description: L("用于计算今日 Token 消耗、历史趋势和消耗金额。"))
-                    PrivacyRow(index: 2, title: L("不上传代码或对话"), description: L("所有数据文件都保留在这台 Mac 上。"))
-                    PrivacyRow(index: 3, title: L("消耗金额仅供参考"), description: L("按本地价格表粗略估算，不等于真实账单。"))
+                    PrivacyRow(index: 1, title: L("上传用量汇总"), description: L("后台代理将设备、系统、Agent、模型、项目标识及每日和每小时 Token 汇总上传到 Supabase。"))
+                    PrivacyRow(index: 2, title: L("不上传代码或对话"), description: L("原始日志留在本机；项目名称属于上传的统计元数据。"))
+                    PrivacyRow(index: 3, title: L("按工作空间授权读取"), description: L("所有用量页面读取登录账号有权限访问的云端数据；暂不提供金额和调用次数。"))
                 }
             }
 
@@ -19,9 +19,9 @@ struct PrivacyView: View {
                     Text(L("本地文件"))
                         .font(.title3.weight(.heavy))
                         .foregroundStyle(Color.tokenInk)
-                    FilePathRow(label: L("用量数据"), path: AppPaths.usageJSON.path)
+                    FilePathRow(label: L("采集与上传状态"), path: NSHomeDirectory() + "/Library/Application Support/TokenStep/agent")
                     FilePathRow(label: L("设置"), path: AppPaths.settingsJSON.path)
-                    Text(L("后续如果接入排行榜，会单独做授权和确认，不会默认上传。"))
+                    Text(L("测试期间每分钟采集上传一次。退出前端不影响后台代理；电脑休眠或退出系统登录时不会持续运行。"))
                         .font(.callout.weight(.semibold))
                         .foregroundStyle(.secondary)
                 }
@@ -51,7 +51,7 @@ struct PrivacyView: View {
                                      title: L("暂无数据"),
                                      description: L("该数据从未成功获取，不会显示为 0。"))
                     }
-                    Text(L("按 API 列表价估算，不代表订阅或实际账单。"))
+                    Text(L("上传失败会保留本地待上传队列；前端获取失败时保留最后成功的云端数据。"))
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                 }

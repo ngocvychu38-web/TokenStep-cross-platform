@@ -94,6 +94,7 @@ struct HistoryView: View {
 }
 
 private struct HistoryRow: View {
+    @EnvironmentObject private var appState: AppState
     var row: DailyUsage
     var goal: Int
 
