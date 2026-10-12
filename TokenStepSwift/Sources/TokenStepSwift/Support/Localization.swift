@@ -30,6 +30,8 @@ enum TokenStepLocalization {
 
     private static let translations: [TokenStepLanguage: [String: String]] = [
         .en: [
+            "采集成功，上传失败；数据已保留，请检查网络后重试": "Collected successfully; upload failed. Data is retained. Check the network and retry.",
+            "采集成功，无法读取设备凭据；请检查钥匙串授权": "Collected successfully; device credentials are unavailable. Check Keychain authorization.",
             "自动": "Auto",
             "刘海左侧": "Left of notch",
             "刘海右侧": "Right of notch",
@@ -454,6 +456,8 @@ enum TokenStepLocalization {
             "请手动把 DMG 里的 TokenStep 拖到 Applications。": "Please drag TokenStep from the DMG into Applications manually.",
         ],
         .zhHant: [
+            "采集成功，上传失败；数据已保留，请检查网络后重试": "採集成功，上傳失敗；資料已保留，請檢查網路後重試",
+            "采集成功，无法读取设备凭据；请检查钥匙串授权": "採集成功，無法讀取裝置憑證；請檢查鑰匙圈授權",
             "简体中文": "簡體中文",
             "自动": "自動",
             "刘海左侧": "瀏海左側",

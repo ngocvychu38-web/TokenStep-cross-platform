@@ -47,3 +47,12 @@ from public.usage_dashboard;
 08:33:58.724 正式账号记录 `cloud_sign_in_ok`。截至 08:46:19.659，前端连续刷新成功，最新分页 REST 请求均为 HTTP 200，`cloud_snapshot_applied` 为 362 行、2,707,677,955 Token、1 台设备、11 个来源状态（其中 3 个来源有用量）；未发现 `cloud_refresh_failed`。这一读数与本机 08:46:04.212944 采集快照一致，已安装代理只读 `verify` 通过，全部 362 桶具有小时汇总，小时 Token 合计与快照合计一致。
 
 最近十轮后台成功记录从 08:33:29.347 至 08:46:06.306，批次 12–21 均 `accepted=362 duplicate=false`；相邻成功完成间隔为 72.0–110.5 秒。最新上传请求编号为 `4a1bd387-acf0-4c0a-be84-9d628448d0ac`，HTTP 200；本地待确认批次为 0，last-sync 成功时间为 08:46:06.264，stderr 日志为空。此续验未重查该请求的服务端日志或 SQL；最新云端内容由正式账号前端读取记录佐证。钥匙串授权和实际登录不再待办；各页可视交互、退出登录清空、断网展示及 Windows 实机仍待验收。
+# 2026-10-12：手动刷新上传连接重置修复
+
+本机曾出现 `collection_ok`、`credential_read_ok` 后连接重置，前端 URLSession 仍可读云端。Rust 默认网络路径没有使用 macOS 系统 HTTPS 代理；该代理路径还需要 TLS 1.2 兼容配置。统一客户端现在读取 `scutil --proxy` 中启用的 HTTPS 代理（显式 HTTPS/ALL_PROXY 环境设置优先），仅在 macOS 系统代理路径使用 TLS 1.2，继续校验证书；不改变系统网络设置。Windows 保留原有环境代理及 TLS 行为。
+
+`network_config proxy=macos_system tls=1.2` 表示上述配置启用，不记录代理凭据。采集、注册和上传共享客户端，连接超时 10 秒、请求超时 30 秒，并禁止重定向以保护凭据。
+
+验证命令：`cargo test -p tokenstep-agent deployed_ingest_connection -- --ignored --nocapture`。这项显式联网测试预期未携带凭据的 GET 返回 405；它只证明连接成功，实际上传还必须看到 HTTP 200、`batch_acknowledged` 和最终 `cycle_ok`。默认测试不运行此网络测试。失败批次始终保留在 outbox；积压较多时先等待后台补传，手动刷新最多等待约 120 秒。
+
+展示端根据本次进程日志区分“采集成功，上传失败”和“采集成功，无法读取设备凭据”，不把原始网络错误或凭据直接显示在界面上。

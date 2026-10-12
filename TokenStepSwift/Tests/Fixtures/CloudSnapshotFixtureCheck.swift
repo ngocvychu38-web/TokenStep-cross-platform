@@ -128,6 +128,7 @@ struct CloudSnapshotFixtureCheck {
         let fakeAgent = manualState.appendingPathComponent("fake-agent")
         let agentScript = """
         #!/bin/sh
+        if [ -f "$3/upload-fail" ]; then echo 'collection_ok at=fixture'; echo 'credential_read_ok at=fixture'; echo 'upload_started at=fixture'; exit 9; fi
         if [ -f "$3/fail" ]; then exit 9; fi
         if [ -f "$3/never" ]; then echo 'cycle_skipped already_running'; exit 0; fi
         if [ ! -f "$3/started" ]; then touch "$3/started"; echo 'cycle_skipped already_running'; exit 0; fi
@@ -142,6 +143,12 @@ struct CloudSnapshotFixtureCheck {
             preconditionFailure("failed agent must not be reported as refreshed")
         } catch ManualUsageRefreshService.RefreshError.agentFailed {}
         try FileManager.default.removeItem(at: manualState.appendingPathComponent("fail"))
+        try Data().write(to: manualState.appendingPathComponent("upload-fail"))
+        do {
+            try ManualUsageRefreshService.run(executable: fakeAgent, state: manualState, endpoint: "https://fixture.invalid/upload")
+            preconditionFailure("upload failure must identify successful collection")
+        } catch ManualUsageRefreshService.RefreshError.uploadFailed {}
+        try FileManager.default.removeItem(at: manualState.appendingPathComponent("upload-fail"))
         try Data().write(to: manualState.appendingPathComponent("never"))
         do {
             try ManualUsageRefreshService.run(executable: fakeAgent, state: manualState, endpoint: "https://fixture.invalid/upload", timeout: 0.2)

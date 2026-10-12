@@ -35,11 +35,16 @@ enum ManualUsageRefreshService {
                 throw RefreshError.timedOut
             }
             process.waitUntilExit()
-            guard process.terminationStatus == 0 else { throw RefreshError.agentFailed }
             let input = try FileHandle(forReadingFrom: log)
             defer { try? input.close() }
             try input.seek(toOffset: offset)
             let text = String(decoding: try input.readToEnd() ?? Data(), as: UTF8.self)
+            guard process.terminationStatus == 0 else {
+                if text.contains("collection_ok at=") {
+                    throw text.contains("credential_read_ok at=") ? RefreshError.uploadFailed : RefreshError.credentialFailed
+                }
+                throw RefreshError.agentFailed
+            }
             if text.contains("cycle_ok at=") { return }
             guard text.contains("cycle_skipped already_running") else { throw RefreshError.agentFailed }
             // Wait for the scheduled cycle's lock, then run our own fresh cycle instead of reading stale data.
@@ -49,12 +54,14 @@ enum ManualUsageRefreshService {
     }
 
     enum RefreshError: LocalizedError {
-        case invalidEndpoint, missingAgent, agentFailed, timedOut
+        case invalidEndpoint, missingAgent, agentFailed, timedOut, uploadFailed, credentialFailed
         var errorDescription: String? {
             switch self {
             case .invalidEndpoint: return L("请先配置 Supabase HTTPS 地址")
             case .missingAgent: return L("未安装本机采集代理，请先安装代理")
             case .agentFailed: return L("本机采集或上传失败，请查看 manual-refresh.log")
+            case .uploadFailed: return L("采集成功，上传失败；数据已保留，请检查网络后重试")
+            case .credentialFailed: return L("采集成功，无法读取设备凭据；请检查钥匙串授权")
             case .timedOut: return L("刷新超时，请检查网络或钥匙串授权")
             }
         }

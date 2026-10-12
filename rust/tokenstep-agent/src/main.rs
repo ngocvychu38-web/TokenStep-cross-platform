@@ -6,7 +6,6 @@ use std::{
 use anyhow::{Context, Result, bail};
 use chrono::Utc;
 use clap::{Parser, Subcommand};
-use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use tokenstep_core::OpenCodeSource;
 use tokenstep_core::{
@@ -14,6 +13,7 @@ use tokenstep_core::{
     Collector, DeviceDescriptor, PlatformPaths, SourceAdapter, TeleAgentSource, aggregate_facts,
 };
 use uuid::Uuid;
+mod network;
 mod outbox;
 mod scheduler;
 
@@ -187,9 +187,7 @@ fn main() -> Result<()> {
             println!("credential_read_started at={}", Utc::now().to_rfc3339());
             let credential = read_credentials(&directory)?;
             println!("credential_read_ok at={}", Utc::now().to_rfc3339());
-            let client = Client::builder()
-                .timeout(std::time::Duration::from_secs(60))
-                .build()?;
+            let client = network::client()?;
             while let Some((id, pending)) = queue.oldest()? {
                 let upload_started = std::time::Instant::now();
                 println!(
@@ -306,8 +304,7 @@ fn main() -> Result<()> {
             let directory = state_dir.unwrap_or_else(default_state_dir);
             let state = load_or_create_state(directory.clone())?;
             let device = device_descriptor(&state);
-            let response = Client::builder()
-                .build()?
+            let response = network::client()?
                 .post(enrollment_url)
                 .json(&serde_json::json!({ "enrollment_code": code, "device": device }))
                 .send()
@@ -349,8 +346,7 @@ fn main() -> Result<()> {
                 .context("set --device-token or TOKENSTEP_DEVICE_TOKEN")?;
             let snapshot: CollectionSnapshot = read_json(&input)?;
             verify_snapshot(&snapshot)?;
-            let response = Client::builder()
-                .build()?
+            let response = network::client()?
                 .post(ingest_url)
                 .header("Authorization", format!("Bearer {device_token}"))
                 .json(&snapshot)
