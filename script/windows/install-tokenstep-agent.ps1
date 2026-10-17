@@ -40,6 +40,8 @@ foreach ($Log in @($OutputLog, $ErrorLog)) {
         Move-Item $Log ($Log + '.previous') -Force
     }
 }
+# Under "Stop", Windows PowerShell 5.1 turns the agent's stderr into a terminating error before it reaches the log.
+$ErrorActionPreference = "Continue"
 & '__EXE__' cycle --state-dir '__STATE_DIR__' --ingest-url '__INGEST_URL__' 1>> $OutputLog 2>> $ErrorLog
 exit $LASTEXITCODE
 '@
