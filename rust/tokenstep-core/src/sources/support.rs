@@ -78,8 +78,10 @@ pub fn project_name(path: Option<&str>) -> String {
             .rsplit(['/', '\\'])
             .next()
     })
+    // A drive root such as `Z:\` leaves `Z:`; the upload contract forbids ':'.
+    .map(|value| value.replace(':', ""))
     .filter(|value| !value.is_empty())
-    .unwrap_or("Unnamed")
+    .unwrap_or_else(|| "Unnamed".into())
     .chars()
     .take(64)
     .collect()
@@ -118,5 +120,12 @@ mod tests {
             Some("2026-10-07")
         );
         assert_eq!(project_name(Some(r"C:\work\tokenhub")), "tokenhub");
+    }
+
+    #[test]
+    fn drive_root_project_has_no_separator() {
+        assert_eq!(project_name(Some(r"Z:\")), "Z");
+        assert_eq!(project_name(Some("Z:")), "Z");
+        assert_eq!(project_name(Some(":")), "Unnamed");
     }
 }
