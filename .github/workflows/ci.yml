@@ -2,10 +2,63 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, "codex/**"]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
+  cloud-sql:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --ignore-scripts
+        working-directory: tools/cloud-tests
+      - run: npm test
+        working-directory: tools/cloud-tests
+  rust:
+    strategy:
+      matrix:
+        os: [macos-15, windows-2025]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      - name: Test Rust workspace
+        run: cargo test --workspace
+      - name: Lint Rust workspace
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Build collector release
+        env:
+          RUSTFLAGS: ${{ runner.os == 'Windows' && '-C target-feature=+crt-static' || '' }}
+        run: cargo build --release -p tokenstep-agent
+      - name: Package Windows installer
+        if: runner.os == 'Windows'
+        run: ./script/windows/package-windows.ps1
+      - name: Verify Windows installer
+        if: runner.os == 'Windows'
+        run: ./script/windows/test-windows-package.ps1
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows'
+        with:
+          name: TokenStep-Agent-0.1.0-windows-x64-installer
+          path: release/windows/TokenStep-Agent-0.1.0-windows-x64.zip
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tokenstep-agent-${{ matrix.os }}
+          path: |
+            target/release/tokenstep-agent
+            target/release/tokenstep-agent.exe
+
   build:
     runs-on: macos-15
     steps:
@@ -28,7 +81,14 @@ jobs:
         run: ./script/test_agent_sources.sh
       - name: Run device sync checks
         run: ./script/test_device_sync.sh
+      - name: Run cloud snapshot checks
+        run: ./script/test_cloud_snapshot.sh
+
+      - name: Verify contribution wall dates
+        run: ./script/test_contribution_wall_calendar.sh
       - name: Render settings cards check
         run: ./script/render_settings_cards.sh
+      - name: Verify all screenshot exports
+        run: ./script/test_screenshot_exports.sh
       - name: Build TokenStep
         run: ./script/build_swiftui_and_run.sh --no-launch

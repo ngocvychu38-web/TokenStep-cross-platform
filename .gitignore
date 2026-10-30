@@ -12,3 +12,16 @@ TokenStepSwift/.build/
 TokenStepSwift/dist/
 TokenUsageMenuApp/dist/
 release/
+
+# Rust cross-platform collector
+target/
+rust/**/target/
+*.pdb
+
+# Local cloud/collector configuration and durable state
+.env
+.env.*
+!.env.example
+.tokenstep-agent/
+supabase/.temp/
+node_modules/

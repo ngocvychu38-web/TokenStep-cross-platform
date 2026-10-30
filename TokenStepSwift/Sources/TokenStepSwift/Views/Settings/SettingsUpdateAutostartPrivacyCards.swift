@@ -24,7 +24,7 @@ struct SettingsAutostartCard: View {
                         set: { appState.setAutostart($0) }
                     ))
                     .labelsHidden()
-                    .toggleStyle(.switch)
+                    .modifier(ScreenshotSwitchStyleModifier())
                 }
 
                 StatusLine(
@@ -62,7 +62,7 @@ struct SettingsUpdateCard: View {
                         set: { appState.setAutoUpdateEnabled($0) }
                     ))
                     .labelsHidden()
-                    .toggleStyle(.switch)
+                    .modifier(ScreenshotSwitchStyleModifier())
                 }
 
                 VStack(spacing: 8) {

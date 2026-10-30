@@ -1,5 +1,11 @@
 # TokenStep
 
+本分支的完整交付资料：[功能与技术架构](docs/PROJECT_OVERVIEW.md)、[安装部署及逐层验收](docs/DEPLOYMENT_GUIDE.md)、[实际安装包清单](docs/DISTRIBUTION_MANIFEST.md)。Mac 为展示端 + Rust 代理，Windows 为采集代理；展示数据来自 Supabase。下面的上游下载链接不是本分支内部安装包。
+
+> Rust 跨平台采集器与 Supabase 多设备版本正在 `codex/rust-cross-platform`
+> 分支开发。架构、部署清单和逐步验证方法见
+> [跨平台部署与验收手册](docs/CROSS_PLATFORM_ROLLOUT.md)。
+
 **像记录步数一样，记录你每天的 AI Token 消耗。**
 
 AI 时代，每个人都在和 Agent 一起工作。

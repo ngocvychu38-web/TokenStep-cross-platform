@@ -1,11 +1,24 @@
 import AppKit
 import Foundation
+import Combine
 
 @MainActor
 final class AppState: ObservableObject {
+    let cloud: SupabaseCloudStore
+    var todayDeviceSources: [CloudDeviceUsage] {
+        CloudSnapshotAdapter.deviceSources(rows: cloud.rows, date: today.date, statuses: cloud.sourceStatuses)
+    }
+    let usesCloudData = true
+    @Published private(set) var cloudHasLoaded = false
+    var cloudStatusText: String {
+        if !cloud.isAuthenticated { return L("请先登录云端") }
+        if isRefreshing { return L("同步中") }
+        return cloudHasLoaded ? L("Supabase 已连接") : L("等待下一次同步")
+    }
     @Published private(set) var snapshot: UsageSnapshot = .empty
     @Published private(set) var settings: TokenStepSettings = .defaults
-    @Published private(set) var isRefreshing = false
+    @Published private(set) var isManualRefreshing = false
+    var isRefreshing: Bool { cloud.isLoading || isManualRefreshing }
     @Published private(set) var autostartEnabled = false
     @Published private(set) var isCheckingForUpdates = false
     @Published private(set) var isRefreshingCodexQuota = false
@@ -32,6 +45,7 @@ final class AppState: ObservableObject {
     private var freshnessState = FreshnessState()
 
     private var timer: Timer?
+    private var cloudSubscription: AnyCancellable?
     private var foregroundTimer: Timer?
     private var foregroundRefreshSurfaces = Set<String>()
     private var pendingRefreshAfterCurrent = false
@@ -41,13 +55,30 @@ final class AppState: ObservableObject {
     private var lastAutomaticUsageRefreshAttemptAt: Date?
     private var lastUsageObservedAt: Date?
 
-    init() {
-        loadFreshnessState()
+    init(cloud injectedCloud: SupabaseCloudStore? = nil, startServices: Bool = true) {
+        self.cloud = injectedCloud ?? SupabaseCloudStore()
+        let cloud = self.cloud
+        cloudSubscription = cloud.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
+        cloud.onSnapshot = { [weak self] snapshot in self?.acceptCloudSnapshot(snapshot) }
+        cloud.onFailure = { [weak self] error in
+            guard let self else { return }
+            self.lastError = error.localizedDescription
+            self.freshnessState.collection = self.freshnessState.collection.failing(kind: FreshnessPolicy.classify(error: error), at: Date())
+            self.recomputeFreshness()
+        }
+        cloud.onReset = { [weak self] in
+            self?.snapshot = .empty
+            self?.cloudHasLoaded = false
+            self?.freshnessState.collection = RefreshAttemptRecord()
+            self?.recomputeFreshness()
+        }
         recomputeFreshness()
+        guard startServices else { return }
         load()
         refreshIfSnapshotIsStale()
         applyDefaultAutostartIfNeeded()
         configureTimer()
+        cloud.restoreLogin()
         refreshCodexQuota()
         refreshTokenRank()
         scheduleDeferredUpdateCheck()
@@ -62,6 +93,11 @@ final class AppState: ObservableObject {
         let key = DateFormatter.tokenStepDay.string(from: Date())
         return snapshot.daily.last(where: { $0.date == key })
             ?? DailyUsage(date: key, tools: [:], totalTokens: 0, cost: 0)
+    }
+
+    var currentMonthTokens: Int {
+        let month = String(today.date.prefix(7)) + "-"
+        return snapshot.daily.filter { $0.date.hasPrefix(month) }.reduce(0) { $0 + $1.totalTokens }
     }
 
     var todayAgentWork: DailyAgentWork {
@@ -146,8 +182,7 @@ final class AppState: ObservableObject {
         TokenStepLocalization.apply(loadedSettings.language)
         TokenStepThemeRuntime.apply(loadedSettings.theme)
         settings = loadedSettings
-        snapshot = (try? DataService.loadSnapshot()) ?? .empty
-        showsUsageRecalibrationNotice = DataService.hasPendingUsageRecalibrationNotice
+        showsUsageRecalibrationNotice = false
         if !loadedSettings.showCodexQuota {
             codexQuota = .unavailable
             claudeQuota = .unavailable
@@ -175,71 +210,52 @@ final class AppState: ObservableObject {
     }
 
     func refresh(forceCollection: Bool = true) {
-        guard !isRefreshing else {
-            if forceCollection {
-                pendingRefreshAfterCurrent = true
-                pendingForcedRefresh = true
-            }
-            return
-        }
-        let refreshStartedAt = Date()
-        if !forceCollection,
-           EnergyRefreshPolicy.isFresh(
-               lastAttemptAt: lastAutomaticUsageRefreshAttemptAt,
-               ttl: EnergyRefreshPolicy.automaticRetryTTL(
-                   requestedSeconds: settings.refreshIntervalSeconds
-               ),
-               now: refreshStartedAt
-           ) {
-            return
-        }
+        guard !isManualRefreshing else { return }
         if !forceCollection {
-            lastAutomaticUsageRefreshAttemptAt = refreshStartedAt
+            if cloud.isAuthenticated { cloud.refresh() }
+            return
         }
-        isRefreshing = true
+        refreshTokenRank(force: true)
+        refreshCodexQuota(force: true)
+        isManualRefreshing = true
         lastError = nil
-        freshnessState.collection = freshnessState.collection.attempting(at: refreshStartedAt)
-        recomputeFreshness(now: refreshStartedAt)
-        let historyDays = settings.historyDays
+        let projectURL = cloud.projectURL
+        LifecycleLogger.log("manual_refresh_started")
         Task {
-            var outcome: CollectionRunOutcome = .unchanged
-            var collectionSucceeded = false
+            defer { isManualRefreshing = false }
             do {
-                outcome = try await Task.detached(priority: .utility) {
-                    try DataService.runCollectorInHelper(
-                        historyDays: historyDays,
-                        force: forceCollection
-                    )
-                }.value
-                collectionSucceeded = true
-            } catch {
-                let kind = FreshnessPolicy.classify(error: error)
-                freshnessState.collection = freshnessState.collection.failing(kind: kind, at: Date())
-                // 用户可见错误使用安全分类文案，不透出原始错误正文。
-                lastError = kind.localizedSummary
-            }
-            if outcome != .unchanged {
-                load()
-            }
-            if collectionSucceeded {
-                if outcome != .updatedWhileSourcesChanged {
-                    lastUsageObservedAt = Date()
+                if !cloud.isAuthenticated { cloud.restoreLogin() }
+                while cloud.isLoading { try await Task.sleep(nanoseconds: 100_000_000) }
+                guard cloud.isAuthenticated else {
+                    lastError = cloud.errorMessage ?? L("请先登录云端，再刷新本机用量")
+                    LifecycleLogger.log("manual_refresh_failed stage=login")
+                    return
                 }
-                // 只要 helper 未抛错即视为成功（快照已持久化）；
-                // updatedWhileSourcesChanged 的口径警示保留在 source diagnostics，
-                // 不影响"最后成功时间"的判定。
-                freshnessState.collection = freshnessState.collection.succeeding(at: Date())
-            }
-            recomputeFreshness()
-            persistFreshnessState()
-            isRefreshing = false
-            if pendingRefreshAfterCurrent {
-                let force = pendingForcedRefresh
-                pendingRefreshAfterCurrent = false
-                pendingForcedRefresh = false
-                refresh(forceCollection: force)
+                try await ManualUsageRefreshService.collectAndUpload(projectURL: projectURL)
+                // A timer read may already be in flight; wait before starting the post-upload read.
+                while cloud.isLoading { try await Task.sleep(nanoseconds: 100_000_000) }
+                guard cloud.isAuthenticated, cloud.projectURL == projectURL else { return }
+                cloud.refresh()
+                while cloud.isLoading { try await Task.sleep(nanoseconds: 100_000_000) }
+                if let error = cloud.errorMessage { lastError = error }
+                LifecycleLogger.log("manual_refresh_finished success=\(cloud.errorMessage == nil)")
+            } catch {
+                lastError = error.localizedDescription
+                freshnessState.collection = freshnessState.collection.failing(kind: FreshnessPolicy.classify(error: error), at: Date())
+                recomputeFreshness()
+                LifecycleLogger.log("manual_refresh_failed")
             }
         }
+    }
+
+    private func acceptCloudSnapshot(_ remote: UsageSnapshot) {
+        snapshot = remote
+        cloudHasLoaded = true
+        lastError = nil
+        let observed = UsageSnapshotRefreshPolicy.generatedDate(remote.generatedAt) ?? Date()
+        freshnessState.collection = freshnessState.collection.succeeding(at: observed)
+        lastUsageObservedAt = observed
+        recomputeFreshness()
     }
 
     func refreshForForeground(now: Date = Date()) {
@@ -269,6 +285,7 @@ final class AppState: ObservableObject {
     }
 
     func refreshCodexQuota(force: Bool = false, now: Date = Date()) {
+        guard !usesCloudData else { return } // Quota endpoints are not part of the cloud usage contract.
         guard settings.showCodexQuota else {
             codexQuota = .unavailable
             claudeQuota = .unavailable
@@ -733,13 +750,7 @@ final class AppState: ObservableObject {
     private func configureTimer() {
         timer?.invalidate()
         timer = nil
-        guard let interval = EnergyRefreshPolicy.backgroundInterval(
-            requestedSeconds: settings.refreshIntervalSeconds,
-            powerSource: TokenStepPowerState.source,
-            lowPowerMode: TokenStepPowerState.lowPowerModeEnabled
-        ) else {
-            return
-        }
+        let interval = 60
         timer = Timer.scheduledTimer(withTimeInterval: TimeInterval(interval), repeats: false) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }

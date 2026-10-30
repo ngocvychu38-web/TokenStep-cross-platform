@@ -246,7 +246,7 @@ struct SettingsToggleRow: View {
             Spacer()
             Toggle("", isOn: $isOn)
                 .labelsHidden()
-                .toggleStyle(.switch)
+                .modifier(ScreenshotSwitchStyleModifier())
                 .controlSize(.small)
         }
     }
