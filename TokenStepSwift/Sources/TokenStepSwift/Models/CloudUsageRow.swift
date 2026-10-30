@@ -1,5 +1,28 @@
 import Foundation
 
+/// Inclusive cloud day boundaries, independent of the computer's current timezone.
+struct CloudDateRange {
+    static let timeZone = TimeZone(identifier: "Asia/Shanghai")!
+    let startDay: String
+    let endDay: String
+
+    init(start: Date, end: Date) {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = Self.timeZone
+        formatter.dateFormat = "yyyy-MM-dd"
+        let first = formatter.string(from: start)
+        let last = formatter.string(from: end)
+        startDay = min(first, last)
+        endDay = max(first, last)
+    }
+
+    func contains(_ localDate: String) -> Bool {
+        localDate >= startDay && localDate <= endDay
+    }
+}
+
 struct CloudDeviceUsage: Identifiable {
     var id: UUID
     var name: String

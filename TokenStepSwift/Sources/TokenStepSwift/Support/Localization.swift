@@ -30,6 +30,12 @@ enum TokenStepLocalization {
 
     private static let translations: [TokenStepLanguage: [String: String]] = [
         .en: [
+            "日期范围": "Date range",
+            "开始日期": "Start date",
+            "结束日期": "End date",
+            "全部日期": "All dates",
+            "至": "to",
+            "所选条件下暂无数据": "No data matches the selected filters",
             "采集成功，上传失败；数据已保留，请检查网络后重试": "Collected successfully; upload failed. Data is retained. Check the network and retry.",
             "采集成功，无法读取设备凭据；请检查钥匙串授权": "Collected successfully; device credentials are unavailable. Check Keychain authorization.",
             "自动": "Auto",
@@ -456,6 +462,12 @@ enum TokenStepLocalization {
             "请手动把 DMG 里的 TokenStep 拖到 Applications。": "Please drag TokenStep from the DMG into Applications manually.",
         ],
         .zhHant: [
+            "日期范围": "日期範圍",
+            "开始日期": "開始日期",
+            "结束日期": "結束日期",
+            "全部日期": "全部日期",
+            "至": "至",
+            "所选条件下暂无数据": "所選條件下暫無資料",
             "采集成功，上传失败；数据已保留，请检查网络后重试": "採集成功，上傳失敗；資料已保留，請檢查網路後重試",
             "采集成功，无法读取设备凭据；请检查钥匙串授权": "採集成功，無法讀取裝置憑證；請檢查鑰匙圈授權",
             "简体中文": "簡體中文",

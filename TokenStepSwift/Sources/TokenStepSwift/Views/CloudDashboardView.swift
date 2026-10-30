@@ -7,7 +7,9 @@ struct CloudDashboardView: View {
     @State private var selectedAgent = "全部"
     @State private var selectedProject = "全部"
     @State private var selectedOS = "全部"
-    @State private var selectedDay = "全部"
+    @State private var useDateRange = false
+    @State private var startDate = Date()
+    @State private var endDate = Date()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -74,13 +76,34 @@ struct CloudDashboardView: View {
     }
 
     private var filters: some View {
-        HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 12) {
+          HStack(spacing: 12) {
             filterPicker(L("机器"), selection: $selectedDevice, values: Set(store.rows.map(\.deviceName)))
             filterPicker("Agent", selection: $selectedAgent, values: Set(store.rows.map(\.agentName)))
             filterPicker(L("项目"), selection: $selectedProject, values: Set(store.rows.map(\.projectName)))
             filterPicker(L("系统"), selection: $selectedOS, values: Set(store.rows.map(\.osFamily)))
-            filterPicker(L("日期"), selection: $selectedDay, values: Set(store.rows.map(\.localDate)))
             Spacer()
+          }
+          HStack(spacing: 12) {
+            Toggle(L("日期范围"), isOn: $useDateRange).toggleStyle(.checkbox)
+            if useDateRange {
+                DatePicker(L("开始日期"), selection: $startDate, displayedComponents: .date)
+                Text(L("至"))
+                DatePicker(L("结束日期"), selection: $endDate, displayedComponents: .date)
+                Button(L("全部日期")) { useDateRange = false }
+            } else {
+                Text(L("全部日期")).foregroundStyle(.secondary)
+            }
+            Spacer()
+          }
+          .environment(\.timeZone, CloudDateRange.timeZone)
+          .environment(\.calendar, Calendar(identifier: .gregorian))
+          .onChange(of: startDate) { _, value in
+              if value > endDate { endDate = value }
+          }
+          .onChange(of: endDate) { _, value in
+              if value < startDate { startDate = value }
+          }
         }
     }
 
@@ -104,6 +127,10 @@ struct CloudDashboardView: View {
 
     private var cloudRows: some View {
         LazyVStack(spacing: 8) {
+            if filteredRows.isEmpty {
+                Text(L("所选条件下暂无数据"))
+                    .foregroundStyle(.secondary).padding(20)
+            }
             ForEach(filteredRows) { row in
                 HStack(spacing: 12) {
                     Image(systemName: row.osFamily == "windows" ? "desktopcomputer" : "laptopcomputer")
@@ -124,12 +151,13 @@ struct CloudDashboardView: View {
     }
 
     private var filteredRows: [CloudUsageRow] {
-        store.rows.filter { row in
+        let range = CloudDateRange(start: startDate, end: endDate)
+        return store.rows.filter { row in
             (selectedDevice == "全部" || row.deviceName == selectedDevice)
                 && (selectedAgent == "全部" || row.agentName == selectedAgent)
                 && (selectedProject == "全部" || row.projectName == selectedProject)
                 && (selectedOS == "全部" || row.osFamily == selectedOS)
-                && (selectedDay == "全部" || row.localDate == selectedDay)
+                && (!useDateRange || range.contains(row.localDate))
         }
     }
 }

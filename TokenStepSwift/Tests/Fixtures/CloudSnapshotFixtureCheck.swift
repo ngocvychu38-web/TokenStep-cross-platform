@@ -3,6 +3,17 @@ import Foundation
 @main
 struct CloudSnapshotFixtureCheck {
     @MainActor static func main() async throws {
+        let iso = ISO8601DateFormatter()
+        let mayStart = iso.date(from: "2026-04-30T16:00:00Z")!
+        let mayEnd = iso.date(from: "2026-05-10T15:59:59Z")!
+        let range = CloudDateRange(start: mayStart, end: mayEnd)
+        precondition(range.startDay == "2026-05-01" && range.endDay == "2026-05-10")
+        precondition(range.contains("2026-05-01") && range.contains("2026-05-10"))
+        precondition(range.contains("2026-05-05"))
+        precondition(!range.contains("2026-04-30") && !range.contains("2026-05-11"))
+        precondition(CloudDateRange(start: mayStart, end: mayStart).contains("2026-05-01"))
+        precondition(CloudDateRange(start: mayEnd, end: mayStart).startDay == range.startDay)
+        print("cloud_date_range_ok: inclusive boundaries, single day, reversed dates, Shanghai timezone")
         let json = """
         [{"workspace_id":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa","local_date":"2026-10-07","device_id":"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb","device_name":"Intel Mac","os_family":"macos","os_version":"26","architecture":"x86_64","agent_key":"teleagent","agent_name":"TeleAgent","project_key":"p1","project_name":"tokenhub","model":"gpt-5","input_tokens":10,"output_tokens":4,"cache_read_tokens":3,"cache_write_tokens":1,"reasoning_tokens":2,"total_tokens":18,"record_count":1,"last_seen_at":"2026-10-07T01:00:00Z","hourly_usage":[{"hour":9,"record_count":1,"tokens":{"input_tokens":10,"output_tokens":4,"cache_read_tokens":3,"cache_write_tokens":1,"reasoning_tokens":2,"total_tokens":18}}]}]
         """
